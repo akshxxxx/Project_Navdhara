@@ -1,135 +1,110 @@
-import { useQuery, useMutation } from '@tanstack/react-query';
-import { useTranslation } from 'react-i18next';
-import {
-  fetchRiskMap,
-  fetchClosures,
-  fetchRouteRisk,
-  postFieldReport,
-  fetchAlerts,
-  fetchPriorityList,
-  fetchModelInfo,
-  fetchBacktestSummary,
-  fetchHistory,
-} from './client';
-import type { TripPlanRequest, FieldReportSubmission } from './types';
-import { useDemoStore } from './demoStore';
+import { useQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
 
-export function useRiskMap() {
-  const { i18n } = useTranslation();
-  const { simulateRainMm, asOf } = useDemoStore();
-  return useQuery({
-    queryKey: ['risk-map', i18n.language, simulateRainMm, asOf],
-    queryFn: fetchRiskMap,
-    staleTime: 2 * 60 * 1000,
-    refetchInterval: 5 * 60 * 1000,
-    gcTime: 24 * 60 * 60 * 1000,
-  });
+import offlinePackFixture from '@/data/fixtures/offline-pack.json';
+import riskMapFixture from '@/data/fixtures/risk-map.json';
+import { LEVELS } from '@/domain/levels';
+import { adaptSegment, byWorst, type Stretch } from '@/domain/stretch';
+
+import { api } from './client';
+import { KEYS, readJson, writeJson } from './storage';
+import type { OfflinePackResponse, RiskMapResponse, RouteRiskResponse } from './types';
+
+/** live = fresh from the backend; saved = last good copy on this phone; demo = bundled sample, not real */
+export type Source = 'live' | 'saved' | 'demo';
+
+export interface Sourced<T> {
+  data: T;
+  source: Source;
+  savedAt: string | null;
 }
 
-export function useClosures() {
-  const { i18n } = useTranslation();
-  const { simulateRainMm, asOf } = useDemoStore();
-  return useQuery({
-    queryKey: ['closures', i18n.language, simulateRainMm, asOf],
-    queryFn: fetchClosures,
-    staleTime: 2 * 60 * 1000,
-    refetchInterval: 5 * 60 * 1000,
-    gcTime: 24 * 60 * 60 * 1000,
-  });
+const REFRESH_MS = 5 * 60 * 1000;
+
+async function withFallback<T>(key: string, fetcher: () => Promise<T>, fixture: T): Promise<Sourced<T>> {
+  try {
+    const data = await fetcher();
+    const savedAt = new Date().toISOString();
+    await writeJson(key, { data, savedAt });
+    return { data, source: 'live', savedAt };
+  } catch {
+    const saved = await readJson<{ data: T; savedAt: string }>(key);
+    if (saved) return { data: saved.data, source: 'saved', savedAt: saved.savedAt };
+    return { data: fixture, source: 'demo', savedAt: null };
+  }
 }
 
-export function useTripPlan(req: TripPlanRequest | null) {
-  const { i18n } = useTranslation();
-  const { simulateRainMm } = useDemoStore();
-  return useQuery({
-    queryKey: ['trip-plan', req?.origin, req?.destination, req?.depart_time, i18n.language, simulateRainMm],
-    queryFn: () => fetchRouteRisk(req!),
-    enabled: !!req,
-    staleTime: 5 * 60 * 1000,
-    gcTime: 24 * 60 * 60 * 1000,
-  });
+export interface Corridor {
+  stretches: Stretch[];
+  byId: Record<string, Stretch>;
+  worstFirst: Stretch[];
+  highOrSevere: number;
+  closed: number;
+  weatherSource: string | null;
+  updatedAt: string | null;
+  source: Source;
+  savedAt: string | null;
 }
 
-export function useSubmitReport() {
-  return useMutation({
-    mutationFn: (submission: FieldReportSubmission) => postFieldReport(submission),
-  });
-}
-
-export function useAlerts() {
-  const { i18n } = useTranslation();
-  const { simulateRainMm, asOf } = useDemoStore();
-  
-  return useQuery({
-    queryKey: ['alerts', i18n.language, simulateRainMm, asOf],
-    queryFn: async () => {
-      try {
-        const res = await fetchAlerts();
-        // Assuming fetchAlerts returns { alerts: [...] }
-        const alertsList = res.alerts || [];
-        
-        // Map backend AlertItem to app UI format
-        return alertsList.map((a: any) => ({
-          id: a.alert_id,
-          segment_id: a.segment_id,
-          level: a.severity === 'Severe' ? 3 : a.severity === 'High' ? 2 : a.severity === 'Moderate' ? 1 : 0,
-          effectiveLevel: a.severity === 'Severe' ? 3 : a.severity === 'High' ? 2 : a.severity === 'Moderate' ? 1 : 0,
-          segment: { id: a.segment_id, name: a.segment_name, main_driver: a.message }, // minimal stub for UI
-          created_at: a.issued_at,
-        }));
-      } catch (error) {
-        // Fallback to deriving from risk map on network error
-        const riskData = await fetchRiskMap();
-        return riskData.segments
-          .filter(s => s.effectiveLevel === 'closed' || s.level >= 2)
-          .map(s => ({
-            id: `alert-${s.id}`,
-            segment_id: s.id,
-            level: s.level,
-            effectiveLevel: s.effectiveLevel,
-            segment: s,
-            created_at: s.updated_at,
-          }));
-      }
-    },
+export function useCorridor() {
+  const query = useQuery({
+    queryKey: ['risk-map'],
+    queryFn: () => withFallback(KEYS.riskMap, api.riskMap, riskMapFixture as unknown as RiskMapResponse),
+    refetchInterval: REFRESH_MS,
     staleTime: 60 * 1000,
-    refetchInterval: 60000,
-    gcTime: 24 * 60 * 60 * 1000,
+  });
+  const corridor = useMemo<Corridor | null>(() => {
+    const res = query.data;
+    if (!res) return null;
+    const stretches = res.data.segments.map(adaptSegment).sort((a, b) => a.seq - b.seq);
+    return {
+      stretches,
+      byId: Object.fromEntries(stretches.map((s) => [s.id, s])),
+      worstFirst: [...stretches].sort(byWorst),
+      highOrSevere: stretches.filter((s) => s.level === 'high' || s.level === 'severe').length,
+      closed: stretches.filter((s) => s.level === 'closed').length,
+      weatherSource: res.data.weather_source ?? null,
+      updatedAt: res.data.weather_fetched_at ?? stretches[0]?.updatedAt ?? null,
+      source: res.source,
+      savedAt: res.savedAt,
+    };
+  }, [query.data]);
+  return { ...query, corridor };
+}
+
+export function useOfflinePack() {
+  return useQuery({
+    queryKey: ['offline-pack'],
+    queryFn: () =>
+      withFallback(KEYS.offlinePack, api.offlinePack, offlinePackFixture as unknown as OfflinePackResponse),
+    staleTime: 10 * 60 * 1000,
   });
 }
 
-export function usePriorityList() {
+export function useFieldReports() {
   return useQuery({
-    queryKey: ['priority-list'],
-    queryFn: fetchPriorityList,
-    staleTime: 5 * 60 * 1000,
-    gcTime: 24 * 60 * 60 * 1000,
+    queryKey: ['field-reports'],
+    queryFn: api.fieldReports,
+    refetchInterval: REFRESH_MS,
+    retry: 1,
   });
 }
 
-export function useModelInfo() {
-  return useQuery({
-    queryKey: ['model-info'],
-    queryFn: fetchModelInfo,
-    staleTime: 24 * 60 * 60 * 1000,
-    gcTime: 24 * 60 * 60 * 1000,
+export interface TripParams {
+  origin: string;
+  destination: string;
+  departTime: string; // YYYY-MM-DDTHH:MM:00, IST
+}
+
+export function useTrip(p: TripParams | null) {
+  return useQuery<RouteRiskResponse>({
+    queryKey: ['trip', p?.origin, p?.destination, p?.departTime],
+    queryFn: () => api.tripPlanner({ origin: p!.origin, destination: p!.destination, depart_time: p!.departTime }),
+    enabled: !!p,
+    retry: false,
+    staleTime: 2 * 60 * 1000,
   });
 }
 
-export function useBacktestSummary() {
-  return useQuery({
-    queryKey: ['backtest-summary'],
-    queryFn: fetchBacktestSummary,
-    staleTime: 24 * 60 * 60 * 1000,
-    gcTime: 24 * 60 * 60 * 1000,
-  });
-}
-
-export function useHistory() {
-  return useQuery({
-    queryKey: ['history'],
-    queryFn: fetchHistory,
-    staleTime: 24 * 60 * 60 * 1000,
-    gcTime: 24 * 60 * 60 * 1000,
-  });
-}
+export const levelCount = (stretches: Stretch[], key: keyof typeof LEVELS) =>
+  stretches.filter((s) => s.level === key).length;

@@ -1,62 +1,52 @@
-# Raah (राह) – Mobile App
+# Raah app (Expo / React Native)
 
-Landslide risk assessment and alert app for the NH-7 highway (Rishikesh to Badrinath, Uttarakhand). Built for the IBM Hackathon.
+The traveller app for Raah: landslide risk on **NH-7, Rishikesh to Joshimath** (18 stretches, 247 km).
+Five tabs, as in `../frontend.md`: **Map, Plan trip, Alerts, Reports, Emergency**. Officials' tools
+(verify reports, Alert All, sensors, simulate rain, admin key) are deliberately not in this app.
 
-## Stack
-- **Framework**: Expo (SDK 52+) with Expo Router
-- **Language**: TypeScript Strict
-- **Styling**: NativeWind v4 with design tokens matching `00_DESIGN_SYSTEM.md`
-- **Typography**: IBM Plex Sans, IBM Plex Sans Condensed, IBM Plex Sans Devanagari (loaded via Expo Google Fonts)
-- **Data & Cache**: TanStack Query with AsyncStorage persister (24-hour offline cache)
-- **Network**: `@react-native-community/netinfo` for offline detection
-- **Components & Graphics**: `react-native-svg`, `react-native-reanimated`, `@gorhom/bottom-sheet`, `lucide-react-native`
-- **i18n**: `i18next` + `react-i18next` + `expo-localization` (Hindi & English)
+> Raah supports decisions; it is not an official warning. Low risk does not mean safe. Emergency: 112.
 
-## How to Run
+## Run it
 
-1. **Install dependencies** (if not already installed):
-   ```bash
-   npm install
-   ```
-
-2. **Start the Expo development server**:
-   ```bash
-   npx expo start
-   ```
-
-3. **Open on your device**:
-   - Scan the QR code with **Expo Go** on Android or Camera app on iOS.
-   - Press `w` to open in a web browser.
-   - Press `a` for Android emulator or `i` for iOS simulator.
-
-## Environment Variables
-
-Configured in `.env`:
-```env
-EXPO_PUBLIC_API_URL=http://localhost:3000
-EXPO_PUBLIC_USE_MOCKS=true
+```bash
+npm install
+npx expo start          # scan the QR code with Expo Go (SDK 58), or press w for the web
 ```
-- `EXPO_PUBLIC_API_URL`: Base URL for the backend API.
-- `EXPO_PUBLIC_USE_MOCKS`: Set to `true` (default) to use local realistic mock data with a 300ms simulated delay; set to `false` to communicate with the live backend.
 
-## Dev Route: Kitchen Sink
+Start the backend on the same laptop first (`cd ../Backend && python run.py`, port 8000).
 
-The kitchen sink route is available at `/kitchen-sink`:
-- Displays every component in every state:
-  - Typography scale (`verdict`, `h1`, `h2`, `h3`, `body`, `small`, `caption`) with automatic Hindi Devanagari font and +0.1 line height adjustment.
-  - NHShield milestone badge in sizes 24 and 40.
-  - Risk icons (circle, triangle, diamond, octagon) in both light and night palettes.
-  - Risk badges (with and without verdict text).
-  - StatusLine in all states (Fresh, Stale, Old, Offline, Loading).
-  - Buttons (Primary, Secondary, Disabled) and Chips.
-  - RoadStrip in horizontal and vertical rail orientations with town ticks and Severe hatch pattern.
-  - BottomSheet wrapper demo with snap points.
-  - Language toggle ("हिं | EN") and Light/Night toggle.
-  - Scenario switcher ("dry", "heavy-rain", "blocked").
+- **Phone (Expo Go):** the app calls the laptop that runs `expo start`, at its LAN address on port 8000.
+  Phone and laptop must be on the same Wi-Fi or hotspot.
+- **Web:** the app calls the page's own host on port 8000 (`http://localhost:8000`).
+- **Backend elsewhere:** copy `.env.example` to `.env` and set `EXPO_PUBLIC_API_URL`.
 
-## Architectural Decisions Differing from Web Docs
+If the backend cannot be reached the app keeps working: it shows the last copy saved on the phone
+(labelled **Offline copy · time**), or on a fresh install a bundled sample (labelled **Demo data, not live**).
 
-1. **Native Stack vs Web Stack**: Per project instructions, replaced Vite, PWA, Leaflet, and React Router with Expo Router, NativeWind v4, `react-native-svg`, and `@gorhom/bottom-sheet`.
-2. **RoadStrip Animation**: Implemented 700ms ease-out wipe animation via Reanimated `Animated.View` clipping wrapper. This ensures identical smooth rendering on iOS, Android, and Web without relying on device-specific SVG `<clipPath>` quirks.
-3. **Weekly Route Query**: Used TanStack Query's `useQueries` for parallel 7-day fetching in `useRouteRiskWeek`, strictly adhering to React Hook execution rules.
-4. **Devanagari Font Mapping**: Mapped condensed headline styles to `IBMPlexSansDevanagari` semi-bold weights for Hindi, as the Devanagari family does not have a separate condensed cut.
+## Checks
+
+```bash
+npx tsc --noEmit
+npx eslint src
+```
+
+## Layout
+
+| Path | What |
+|---|---|
+| `src/app/(tabs)/` | The five tabs: `index` (Map), `plan`, `alerts`, `reports`, `emergency` |
+| `src/app/stretch/[id].tsx` | Stretch details (from the map) |
+| `src/app/alert/[id].tsx` | Alert details, with Share (from Alerts) |
+| `src/app/plan-result.tsx` | Trip check result |
+| `src/app/hospitals.tsx` | Nearest hospital per stretch, saved for offline use |
+| `src/api/` | Backend client, response types, React Query hooks, offline cache |
+| `src/domain/` | Pure logic: corridor km table, risk levels, wording, geo, IST time, report encoding |
+| `src/components/CorridorMap.tsx` | SVG map of the corridor (no map key or tiles needed) |
+| `src/data/fixtures/` | Bundled sample used only when there is no network and no saved copy |
+
+## Backend endpoints used
+
+`GET /risk-map` (every 5 min), `POST /trip-planner`, `GET /field-reports`, `POST /field-report`,
+`GET /offline-pack`. Nothing that needs the admin key.
+
+Change history: [`log.md`](log.md).

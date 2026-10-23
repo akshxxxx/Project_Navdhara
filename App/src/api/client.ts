@@ -1,301 +1,120 @@
-import { Platform } from 'react-native';
 import Constants from 'expo-constants';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import i18n from '../locales/i18n';
-import type {
-  TripPlanResponse,
-  FieldReportSubmission,
-  FieldReport,
-  ClosuresResponse,
-  RiskMapResponse,
-  SegmentOption,
-} from './types';
-import type {
-  BackendRiskMapResponse,
-  BackendClosuresResponse,
-  BackendTripPlanResponse,
-  BackendFieldReport,
-} from './backend-types';
-import { toRiskMap, toSegment } from './adapters';
-import { useDemoStore } from './demoStore';
-import { getFixtureForUrl } from './fixturesStore';
+import { Platform } from 'react-native';
 
-export class NetworkError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'NetworkError';
+import { KEYS, readJson, writeJson } from './storage';
+import type { FieldReport, FieldReportCreated, OfflinePackResponse, RiskMapResponse, RouteRiskResponse } from './types';
+
+// Backend address, in this order:
+// 1. an address typed in the app (Server address sheet), saved on the device;
+// 2. EXPO_PUBLIC_API_URL (App/.env), for a backend on another machine;
+// 3. on web, the same host as the page on port 8000;
+// 4. on a phone, the laptop running `expo start` (its LAN address from hostUri) on port 8000,
+//    because "localhost" on a phone is the phone itself.
+function resolveBaseUrl(): string {
+  const fromEnv = process.env.EXPO_PUBLIC_API_URL;
+  if (fromEnv) return fromEnv.replace(/\/+$/, '');
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location) {
+    return `${window.location.protocol}//${window.location.hostname}:8000`;
   }
+  const host = Constants.expoConfig?.hostUri?.split(':')[0];
+  if (host) return `http://${host}:8000`;
+  return Platform.OS === 'android' ? 'http://10.0.2.2:8000' : 'http://localhost:8000';
 }
 
-export class HttpError extends Error {
+export const AUTO_API_URL = resolveBaseUrl();
+let apiUrl = AUTO_API_URL;
+
+export const getApiUrl = () => apiUrl;
+
+/** Read a saved address before the first request (called once at start-up) */
+export async function loadSavedApiUrl(): Promise<void> {
+  const saved = await readJson<string>(KEYS.apiUrl);
+  if (saved) apiUrl = saved;
+}
+
+/** Normalise what a person typed: "192.168.1.5" -> "http://192.168.1.5:8000" */
+export function normaliseApiUrl(input: string): string | null {
+  // Regex, not URL(): React Native's URL is only partly implemented
+  const m = /^(?:(https?):\/\/)?([a-z0-9.-]+)(?::(\d{1,5}))?\/?$/i.exec(input.trim());
+  if (!m) return null;
+  const scheme = (m[1] ?? 'http').toLowerCase();
+  const host = m[2];
+  // A bare LAN address means the backend's default port; a domain name (tunnel) keeps its own
+  const isIpOrLocal = /^(\d{1,3}\.){3}\d{1,3}$/.test(host) || host === 'localhost';
+  const port = m[3] ?? (scheme === 'http' && isIpOrLocal ? '8000' : '');
+  return `${scheme}://${host}${port ? `:${port}` : ''}`;
+}
+
+/** null goes back to the automatic address */
+export async function setApiUrl(url: string | null): Promise<void> {
+  apiUrl = url ?? AUTO_API_URL;
+  await writeJson(KEYS.apiUrl, url);
+}
+
+export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
-    super(message);
+  detail: string | null;
+  /** status 0 only: 'timeout' when the server never answered, 'unreachable' when the connection failed */
+  network: 'timeout' | 'unreachable' | null;
+  constructor(status: number, detail: string | null, network: ApiError['network'] = null) {
+    super(detail || (status ? `Request failed (${status})` : 'Cannot reach the server'));
     this.status = status;
-    this.name = 'HttpError';
+    this.detail = detail;
+    this.network = network;
   }
 }
 
-export function getApiBaseUrl(): string {
-  const envUrl = Constants.expoConfig?.extra?.EXPO_PUBLIC_API_URL ?? process.env.EXPO_PUBLIC_API_URL;
-  if (envUrl) return envUrl;
-  if (Platform.OS === 'android') {
-    const hostUri = Constants.expoConfig?.hostUri 
-      || (Constants as any).manifest2?.extra?.expoClient?.hostUri 
-      || (Constants as any).manifest?.debuggerHost;
-    if (hostUri) {
-      const hostIp = hostUri.split(':')[0];
-      if (hostIp && hostIp !== 'localhost' && hostIp !== '127.0.0.1') {
-        return `http://${hostIp}:8000`;
-      }
-    }
-    return 'http://10.0.2.2:8000';
-  }
-  if (typeof window !== 'undefined' && window.location?.hostname) {
-    return `http://${window.location.hostname}:8000`;
-  }
-  return 'http://localhost:8000';
-}
-
-export const API_URL = getApiBaseUrl();
-
-console.log('App/.env config: process.env.EXPO_PUBLIC_API_URL =', process.env.EXPO_PUBLIC_API_URL);
-console.log('Resolved API_URL =', API_URL);
-
-async function fetchWithTimeout(url: string, options: RequestInit = {}): Promise<Response> {
-  const { useSavedData, userForcedSavedData } = useDemoStore.getState();
-
-  const serveFixture = (fixture: any) => {
-    return new Response(JSON.stringify(fixture), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json', 'X-Is-Fixture': 'true' }
-    });
-  };
-
-  // Only bypass network proactively if the user manually forced saved data in Demo mode
-  if (useSavedData && userForcedSavedData) {
-    const fixture = getFixtureForUrl(url);
-    if (fixture) return serveFixture(fixture);
-  }
-
-  const timeout = 10000;
+async function request<T>(path: string, init: RequestInit = {}, timeoutMs = 10000, base = apiUrl): Promise<T> {
   const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), timeout);
-
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+  let res: Response;
   try {
-    const res = await fetch(url, { ...options, signal: controller.signal });
-    clearTimeout(id);
-    if (!res.ok) throw new HttpError(res.status, `HTTP Error ${res.status} on ${url}`);
-    
-    // Live request succeeded: clear transient fallback saved data
-    if (useDemoStore.getState().useSavedData && !useDemoStore.getState().userForcedSavedData) {
-      useDemoStore.getState().setUseSavedData(false);
-    }
-    return res;
-  } catch (error: any) {
-    clearTimeout(id);
-    console.warn(`[fetchWithTimeout] Failed to fetch ${url}: ${error?.message || error}`);
-    
-    // Only fall back to fixture on network errors or 5xx server errors
-    const isNetworkOr5xx = error.name === 'AbortError' || (error instanceof HttpError && error.status >= 500) || !(error instanceof HttpError);
-    if (isNetworkOr5xx) {
-      const fixture = getFixtureForUrl(url);
-      if (fixture) {
-        useDemoStore.getState().setUseSavedData(true);
-        return serveFixture(fixture);
-      }
-    }
-
-    if (error.name === 'AbortError') {
-      throw new NetworkError(`Request timeout after ${timeout}ms`);
-    }
-    if (error instanceof HttpError) {
-      throw error;
-    }
-    throw new NetworkError(error.message || 'Network error');
+    res = await fetch(`${base}${path}`, { ...init, signal: controller.signal });
+  } catch {
+    // Wrong address, server not running, firewall, or no network: status 0 means "never got an answer"
+    throw new ApiError(0, null, timedOut ? 'timeout' : 'unreachable');
+  } finally {
+    clearTimeout(timer);
   }
-}
-
-function getLang(): string {
-  return i18n.language === 'hi' ? 'hi' : 'en';
-}
-
-function applyDemoParams(params: URLSearchParams) {
-  const { simulateRainMm, asOf } = useDemoStore.getState();
-  if (simulateRainMm !== null) params.set('simulate_rain_mm', String(simulateRainMm));
-  if (asOf) params.set('as_of', asOf);
-}
-
-export async function fetchRiskMap(): Promise<RiskMapResponse> {
-  const params = new URLSearchParams({ lang: getLang() });
-  applyDemoParams(params);
-
-  const res = await fetchWithTimeout(`${API_URL}/risk-map?${params}`);
-  const raw: BackendRiskMapResponse = await res.json();
-  return toRiskMap(raw);
-}
-
-export async function fetchClosures(): Promise<ClosuresResponse> {
-  const res = await fetchWithTimeout(`${API_URL}/closures?active_only=true`);
-  const raw: BackendClosuresResponse = await res.json();
-  return raw as ClosuresResponse; // Schema matches
-}
-
-export async function fetchRouteRisk(
-  req: { origin: string; destination: string; depart_time: string; speed_kmph: number }
-): Promise<TripPlanResponse> {
-  const d = new Date(req.depart_time);
-  const dateStr = d.toISOString().split('T')[0];
-  const params = new URLSearchParams({
-    from_segment: req.origin,
-    to_segment: req.destination,
-    date: dateStr,
-    depart_time: req.depart_time,
-    speed_kmph: String(req.speed_kmph),
-    lang: getLang(),
-  });
-  
-  const { simulateRainMm } = useDemoStore.getState();
-  if (simulateRainMm !== null) params.set('simulate_rain_mm', String(simulateRainMm));
-
-  const res = await fetchWithTimeout(`${API_URL}/route-risk?${params}`);
-  const raw: BackendTripPlanResponse = await res.json();
-  return {
-    ...raw,
-    segments: raw.segments.map(toSegment),
-  } as TripPlanResponse;
-}
-
-export async function postFieldReport(
-  submission: FieldReportSubmission,
-): Promise<FieldReport> {
-  const res = await fetchWithTimeout(`${API_URL}/field-report`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(submission),
-  });
-  const raw: BackendFieldReport = await res.json();
-  return raw as unknown as FieldReport;
-}
-
-export async function fetchFieldReports(): Promise<FieldReport[]> {
-  const res = await fetchWithTimeout(`${API_URL}/field-reports`);
-  const raw = await res.json();
-  return (raw.value || raw) as unknown as FieldReport[];
-}
-
-export async function fetchAlerts(userId?: number): Promise<{alerts: any[]}> {
-  const params = new URLSearchParams({ lang: getLang() });
-  if (userId !== undefined) params.set('user_id', String(userId));
-  try {
-    const savedToken = await AsyncStorage.getItem('raah_subscription_token');
-    if (savedToken) params.set('token', savedToken);
-  } catch {}
-  applyDemoParams(params);
-  const res = await fetchWithTimeout(`${API_URL}/alerts?${params}`);
-  const raw = await res.json();
-  return raw;
-}
-
-export async function postSubscribe(req: any): Promise<any> {
-  const res = await fetchWithTimeout(`${API_URL}/subscribe`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(req),
-  });
-  return res.json();
-}
-
-export async function fetchPriorityList(): Promise<any[]> {
-  const res = await fetchWithTimeout(`${API_URL}/priority-list`);
-  const raw = await res.json();
-  return raw.priority_segments || raw;
-}
-
-export async function fetchModelInfo(): Promise<any> {
-  const res = await fetchWithTimeout(`${API_URL}/model-info`);
-  return await res.json();
-}
-
-export async function fetchBacktestSummary(): Promise<any> {
-  const res = await fetchWithTimeout(`${API_URL}/backtest-summary`);
-  return await res.json();
-}
-
-export async function fetchHistory(): Promise<any> {
-  const res = await fetchWithTimeout(`${API_URL}/history`);
-  return await res.json();
-}
-
-export async function postAdminValidateReport(params: {
-  reportId: number;
-  status: 'verified' | 'rejected';
-  verifiedBy?: string;
-  adminKey?: string;
-}): Promise<any> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (params.adminKey) headers['X-Admin-Key'] = params.adminKey;
-  const res = await fetchWithTimeout(`${API_URL}/admin/validate-report`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({
-      report_id: params.reportId,
-      status: params.status,
-      verified_by: params.verifiedBy || 'NH-7 Control Room Operator',
-    }),
-  });
-  return await res.json();
-}
-
-export async function postAdminClosure(params: {
-  segmentId: string;
-  status: 'closed' | 'one_way' | 'restricted';
-  reason: string;
-  source?: string;
-  startsAt?: string;
-  endsAt?: string;
-  adminKey?: string;
-}): Promise<any> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (params.adminKey) headers['X-Admin-Key'] = params.adminKey;
-  const res = await fetchWithTimeout(`${API_URL}/admin/closure`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({
-      segment_id: params.segmentId,
-      status: params.status,
-      reason: params.reason,
-      source: params.source || 'NH-7 Traffic Control',
-      starts_at: params.startsAt,
-      ends_at: params.endsAt,
-    }),
-  });
-  return await res.json();
-}
-
-export async function deleteAdminClosure(closureId: number, adminKey?: string): Promise<any> {
-  const headers: Record<string, string> = {};
-  if (adminKey) headers['X-Admin-Key'] = adminKey;
-  const res = await fetchWithTimeout(`${API_URL}/admin/closure/${closureId}`, {
-    method: 'DELETE',
-    headers,
-  });
-  return await res.json();
-}
-
-export async function fetchHealth(): Promise<any> {
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), 8000);
-  try {
-    const res = await fetch(`${API_URL}/health`, { signal: controller.signal });
-    clearTimeout(id);
-    if (!res.ok) {
-      throw new Error(`HTTP error! status: ${res.status}`);
+  if (!res.ok) {
+    let detail: string | null = null;
+    try {
+      const body = await res.json();
+      detail = typeof body?.detail === 'string' ? body.detail : (body?.error ?? null);
+    } catch {
+      /* body was not JSON */
     }
-    return await res.json();
-  } catch (error: any) {
-    clearTimeout(id);
-    console.warn(`[fetchHealth] Error: ${error.message} - URL: ${API_URL}/health - Status: ${error.status || 'unknown'}`);
-    throw error;
+    throw new ApiError(res.status, detail);
   }
+  return res.json() as Promise<T>;
 }
+
+/** One sentence for "could not reach the server", naming the address that was tried */
+export function connectionHelp(err: unknown): string {
+  const e = err instanceof ApiError ? err : null;
+  const where = getApiUrl();
+  if (e?.network === 'timeout') return `The Raah server at ${where} did not answer in time.`;
+  return `Cannot reach the Raah server at ${where}.`;
+}
+
+const json = (body: unknown): RequestInit => ({
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(body),
+});
+
+export const api = {
+  health: (base: string) => request<{ status: string }>('/health', {}, 6000, base),
+  riskMap: () => request<RiskMapResponse>('/risk-map'),
+  offlinePack: () => request<OfflinePackResponse>('/offline-pack'),
+  fieldReports: () => request<FieldReport[]>('/field-reports'),
+  // The planner may fetch weather first, so it gets longer than the other calls
+  tripPlanner: (body: { origin: string; destination: string; depart_time: string; speed_kmph?: number }) =>
+    request<RouteRiskResponse>('/trip-planner', json({ ...body, lang: 'en' }), 20000),
+  sendReport: (body: { lat: number; lng: number; description: string; reporter_name: string }) =>
+    request<FieldReportCreated>('/field-report', json(body)),
+};

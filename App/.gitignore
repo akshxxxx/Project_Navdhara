@@ -31,7 +31,6 @@ yarn-error.*
 *.pem
 
 # local env files
-.env
 .env*.local
 
 # typescript
@@ -40,3 +39,9 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# local backend address (EXPO_PUBLIC_API_URL); copy .env.example
+.env
+
+# The root .gitignore ignores **/*.md; keep this app's change log
+!log.md
