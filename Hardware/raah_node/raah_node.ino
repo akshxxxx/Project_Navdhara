@@ -25,11 +25,12 @@
 #include <Wire.h>
 #include <math.h>
 
+// Wi-Fi name/password, SERVER_URL and NODE_KEY live in secrets.h next to this file (git-ignored).
+// First time: copy secrets.example.h to secrets.h and fill it in. A wrong NODE_KEY gives
+// NET,POST_FAIL,401 on the Serial Monitor.
+#include "secrets.h"
+
 // ============================== CONFIG ==============================
-const char* WIFI_SSID  = "";                 // "" = USB only (plug into the backend laptop)
-const char* WIFI_PASS  = "";
-const char* SERVER_URL = "http://192.168.1.10:8000/node/reading";  // backend prints "Team LAN URL"
-const char* NODE_KEY   = "change-me";        // must equal NODE_API_KEY in Backend/.env
 const char* NODE_ID    = "NODE1";            // no MOCK- / SIM- / REPLAY prefix for real hardware
 const char* SEGMENT_ID = "seg_05";           // stretch where the node is installed
 const char* FW_VERSION = "2.1.0";
@@ -80,7 +81,7 @@ bool mpuRead(float &ax, float &ay, float &az) {
   Wire.beginTransmission(MPU);
   Wire.write(0x3B);  // ACCEL_XOUT_H
   if (Wire.endTransmission(false) != 0) return false;
-  if (Wire.requestFrom((int)MPU, 6) != 6) return false;
+  if (Wire.requestFrom(MPU, (uint8_t)6) != 6) return false;
   int16_t v[3];
   for (int i = 0; i < 3; i++) {
     uint8_t hi = Wire.read();  // two statements: the high byte must be read first

@@ -468,3 +468,26 @@ Each entry records **When** (IST), **Who**, **What**, **Why**, **How**, and the 
   - `npm run build` passes.
 - **Not verified:** the firmware was **not compiled or run** (no Arduino toolchain on this laptop), and no real board has connected yet. The first USB session on the real node is the test.
 - **Files:** `Backend/app/serial_ingest.py` (new), `Backend/app/node_sensors.py` (new), `Backend/app/node_service.py`, `Backend/app/models.py`, `Backend/app/routes/node.py`, `Backend/app/main.py`, `Backend/app/config.py`, `Backend/requirements.txt`, `Backend/.env.example`, `Backend/tools/serial_bridge.py`, `Backend/tests/test_node_hardware.py` (new), `Backend/docs/NODE_API.md`, `Hardware/raah_node/raah_node.ino` (new), `Frontend/src/pages/Sensors.jsx`, `Frontend/src/pages/About.jsx`, `features.md`
+
+### L-039 — First real board got HTTP 401: firmware config moved to `secrets.h`
+- **When:** 2026-10-23 21:15–21:31 IST
+- **Who:** Claude Code for Aakash. Aakash: "my friend flashed this code but the backend is giving 401". The team had flashed its own quick sketch (node `TEST1`, posting every 2 s to `http://10.68.89.10:8000/node/reading` over the "realme 12 Pro+ 5G" hotspot).
+- **Why it failed (all from that sketch, no backend bug):**
+  1. **401:** it sent no `X-Node-Key` header. The 401 also proves the board reached the backend over the hotspot.
+  2. Once the key was added it would have got **422**, for three reasons:
+     - no `segment_id`;
+     - states `NORMAL` / `CRITICAL`, which are not OK / WATCH / WARNING / ALARM;
+     - `soil` / `rain` are not field names the backend knows, so they would have been dropped. The raw names are `soil_raw` / `rain_raw`.
+  3. The MPU6050 (tilt, vibration) was never read.
+- **What:**
+  - `Hardware/raah_node/raah_node.ino` now reads Wi-Fi name/password, `SERVER_URL` and `NODE_KEY` from `secrets.h` in the same folder.
+  - `secrets.example.h` is the committed template.
+  - `secrets.h` was created with the hotspot settings and this laptop's `NODE_API_KEY` (read from `Backend/.env`, not printed). The root `.gitignore` now ignores `Hardware/**/secrets.h`, so the Wi-Fi password and key are not shared with the code.
+  - `Wire.requestFrom(MPU, (uint8_t)6)` uses the overload every ESP32 core has.
+  - `NODE_API.md` §2 updated.
+- **Things to check on the day:**
+  - this laptop was on another network (172.168.11.111), so 10.68.89.10 is the backend laptop's address on the hotspot; if that laptop gets a new address, update `SERVER_URL`;
+  - if the backend at 10.68.89.10 is a different laptop, its `Backend/.env` `NODE_API_KEY` must equal `NODE_KEY` in `secrets.h` (restart the backend after editing `.env`);
+  - the node reports as `NODE1` on `seg_05`, whose Telegram subscriber (Aakash) gets a message on a real ALARM.
+- **How verified:** re-read the sketch for compile problems (types declared before the first function, so the Arduino IDE's generated function headers are safe; overloads; format strings). **Not compiled** (no Arduino toolchain here) and not yet flashed.
+- **Files:** `Hardware/raah_node/raah_node.ino`, `Hardware/raah_node/secrets.example.h` (new), `Hardware/raah_node/secrets.h` (new, git-ignored), `.gitignore`, `Backend/docs/NODE_API.md`

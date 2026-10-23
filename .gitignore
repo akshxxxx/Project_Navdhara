@@ -98,3 +98,6 @@ Thumbs.db
 # Generated reports the backend reads at runtime (/model-info) and its tests check for
 !/Backend/outputs/*.md
 !/Backend/docs/*.md
+
+# Raah Node firmware: Wi-Fi password and node key
+Hardware/**/secrets.h
