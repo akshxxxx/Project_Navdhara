@@ -1,0 +1,77 @@
+{
+  "timestamp": "2026-10-23T16:51:33Z",
+  "data": {
+    "seg_01": {
+      "rain_mm": 0.0,
+      "status": "ok"
+    },
+    "seg_02": {
+      "rain_mm": 0.0,
+      "status": "ok"
+    },
+    "seg_03": {
+      "rain_mm": 0.6,
+      "status": "ok"
+    },
+    "seg_04": {
+      "rain_mm": 0.0,
+      "status": "ok"
+    },
+    "seg_05": {
+      "rain_mm": 0.0,
+      "status": "ok"
+    },
+    "seg_06": {
+      "rain_mm": 0.1,
+      "status": "ok"
+    },
+    "seg_07": {
+      "rain_mm": 0.1,
+      "status": "ok"
+    },
+    "seg_08": {
+      "rain_mm": 0.0,
+      "status": "ok"
+    },
+    "seg_09": {
+      "rain_mm": 0.0,
+      "status": "ok"
+    },
+    "seg_10": {
+      "rain_mm": 0.0,
+      "status": "ok"
+    },
+    "seg_11": {
+      "rain_mm": 5.4,
+      "status": "ok"
+    },
+    "seg_12": {
+      "rain_mm": 5.4,
+      "status": "ok"
+    },
+    "seg_13": {
+      "rain_mm": 4.0,
+      "status": "ok"
+    },
+    "seg_14": {
+      "rain_mm": 1.1,
+      "status": "ok"
+    },
+    "seg_15": {
+      "rain_mm": 1.4,
+      "status": "ok"
+    },
+    "seg_16": {
+      "rain_mm": 1.4,
+      "status": "ok"
+    },
+    "seg_17": {
+      "rain_mm": 0.9,
+      "status": "ok"
+    },
+    "seg_18": {
+      "rain_mm": 1.7,
+      "status": "ok"
+    }
+  }
+}

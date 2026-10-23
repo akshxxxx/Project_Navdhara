@@ -1,0 +1,334 @@
+# ⛰️ NH-7 Landslide Early Warning & Resilient Routing Network
+
+[![Python](https://img.shields.io/badge/Python-3.11%20%7C%203.12%20%7C%203.14-blue.svg)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Tests](https://img.shields.io/badge/PyTest-130%20Passed%20(100%25)-success.svg)](https://pytest.org/)
+[![GIS](https://img.shields.io/badge/DEM-Copernicus%2030m-green.svg)](https://spacedata.copernicus.eu/)
+[![PWA](https://img.shields.io/badge/PWA-Offline%20Ready-orange.svg)](https://web.dev/progressive-web-apps/)
+[![Hackathon](https://img.shields.io/badge/Hackathon-IBM%20x%20Jigyasa-purple.svg)]()
+
+> **The Highway:** National Highway 7 (Rishikesh to Joshimath, Uttarakhand, India — 247.37 km, 18 segments)  
+> **The Problem:** The lifeline pilgrimage corridor for Char Dham (Badrinath, Hemkund Sahib) is crippled every monsoon by landslides and cloudbursts.  
+> **Our Mission:** Deliver an AI-powered early warning network that combines satellite terrain physics with live multi-station rainfall forecasts, civil infrastructure vulnerability, two-way SMS, vernacular Hindi voice alerts, and offline survival packs.
+
+---
+
+## 🚀 Quickstart for Friends (Up and Running)
+
+You don't need complicated setups or cloud accounts. Everything runs locally on your machine with a single command!
+
+### Step 1: Clone the Repository & Enter Folder
+```bash
+git clone https://github.com/Nitish-011/nh7-landslide-early-warning.git
+cd nh7-landslide-early-warning
+```
+
+### Step 2: Install Python Dependencies
+```bash
+pip install -r requirements.txt
+```
+
+### Step 3: Run the Server
+```bash
+python run.py
+```
+
+Now open your browser and visit:
+👉 **[http://localhost:8000](http://localhost:8000)**
+
+*The launcher automatically displays your local LAN IP (e.g. `http://192.168.1.15:8000`) so you can open it on your phone on the same Wi-Fi!*
+
+---
+
+## 🎮 Friend's Tour: 5 Coolest Things You MUST Try in the Web UI!
+
+When you open **[http://localhost:8000](http://localhost:8000)**, you'll see our **Interactive 9-Tab Command Workbench**. Here is the ultimate 5-minute showcase tour:
+
+```
++---------------------------------------------------------------------------------------------------+
+|  1. 🌧️ TAB 5: TRIGGER AN EXTREME MONSOON DOWNPOUR                                                  |
+|     Click the "Weather Sim" tab. Drag the rainfall slider from 0 mm to 180 mm (or hit the         |
+|     "Extreme rainfall (140 mm / 3 days)" button). Watch the highway polylines on the map          |
+|     instantly explode from Green (Low) to Fiery Red and Purple (Severe)!                          |
++---------------------------------------------------------------------------------------------------+
+|  2. 🔊 TAB 9: HEAR HINDI NEURAL VOICE WARNINGS                                                    |
+|     Go to "Offline & Voice" tab, or toggle the language switcher at the top right (EN ➔ HI).       |
+|     Click "Play Localized Voice Audio". The server generates real-time audio speech alerts in      |
+|     natural Hindi via cached/local voice delivery with gTTS and browser fallback!                  |
++---------------------------------------------------------------------------------------------------+
+|  3. 🚗 TAB 2: TIME-AWARE TRIP RISK PLANNER                                                         |
+|     Click "Route Planner". Set your departure from Rishikesh to Badrinath. Hit "Analyze Route".   |
+|     The engine checks progressive arrival ETAs for every mountain sector and recommends whether   |
+|     to proceed with caution ("LOW RISK – proceed with caution"), exercise CAUTION, DELAY, or     |
+|     AVOID due to upcoming storm peaks or road blockages!                                          |
++---------------------------------------------------------------------------------------------------+
+|  4. 📱 TAB 7: TRY THE IN-BROWSER SMS SIMULATOR                                                    |
+|     Go to "Alerts & SMS". In the interactive Twilio SMS Simulator widget, type "NH7 HELP" or      |
+|     "NH7 SEG08" and click "Send Simulated SMS". You'll see real-time TwiML XML mobile responses  |
+|     formatting critical road advisories for drivers without smartphones!                          |
++---------------------------------------------------------------------------------------------------+
+|  5. ⚡ TAB 9: CUT THE INTERNET (TEST OFFLINE PWA)                                                 |
+|     Open your browser's Developer Tools (F12) ➔ Network tab ➔ Switch throttling to "Offline".     |
+|     Refresh the page! Thanks to our Service Worker (`sw.js`) and `<17 KB` Offline Survival Pack,  |
+|     the dashboard and highway map keep working seamlessly in mountain dead zones!                 |
++---------------------------------------------------------------------------------------------------+
+```
+
+> **📱 Mobile Phone Testing Note (HTTPS Tunnel):** Service Workers require a secure context (`localhost` or HTTPS). To test offline PWA mode on a physical smartphone over Wi-Fi, expose port 8000 using `cloudflared tunnel --url http://localhost:8000` or `ngrok http 8000` (mobile browsers block Service Workers on unencrypted LAN IPs like `http://<LAN-IP>:8000`).
+
+---
+
+## 🏗️ System Architecture
+
+Our backend is built around a hybrid physical-statistical model: **Static Topographic Physics** combined with **Dynamic Weather and Operational Incident States** (supporting both hardened 5-station daily assimilation by default and an advanced 18-segment hourly forecasting pipeline).
+
+```
+                           +-------------------------------------------------+
+                           |           SATELLITE & INVENTORY DATA             |
+                           |  - Copernicus 30m DEM (Slope, Relief, TPI)       |
+                           |  - Mey et al. (2024) 309 Historical Slide Scars  |
+                           +------------------------+------------------------+
+                                                    |
+                                                    v
++-----------------------+  Hourly / Daily Rain  +---------------------------------+
+|   Open-Meteo API      | --------------------> |     DYNAMIC HAZARD ENGINE       |
+| 5 Virtual Stations on |                       |  Risk = min(0.60*T + 0.40*R_norm)
+| NH-7 (5-min circuit)  |                       |  Dry cap (25mm) + Storm Sim     |
++-----------------------+                       +---------------+-----------------+
+                                                            |
+              +---------------------------------------------+------------------------------------+
+              |                                             |                                    |
+              v                                             v                                    v
++---------------------------+                 +---------------------------+        +---------------------------+
+|    TRIP RISK PLANNER      |                 |    BRO ASSET PRIORITY     |        |   ROAD CLOSURES & DETOURS |
+| Route waypoint ETAs &     |                 | Hazard x Bridge / Hospital|        | Active blockages, bypass  |
+| lowest-risk windows       |                 | Consequence Pre-staging   |        | routing & crowd reports   |
++-------------+-------------+                 +-------------+-------------+        +-------------+-------------+
+              |                                             |                                    |
+              +---------------------------------------------+------------------------------------+
+                                                            |
+                                                            v
+                                            +-------------------------------+
+                                            |   MULTI-CHANNEL DISPATCHER    |
+                                            | - Twilio SMS Webhook (TwiML)  |
+                                            | - Telegram Bot Worker         |
+                                            | - gTTS Voice Stream (Hindi/En)|
+                                            | - PWA Offline Pack (< 17 KB)  |
+                                            +-------------------------------+
+```
+
+---
+
+## 🗂️ What's in the Workspace?
+
+Here is a clean directory guide so you can find anything instantly:
+
+```
+nh7-landslide-early-warning/
+├── app/                        # FastAPI application core
+│   ├── main.py                 # Application startup, routing, and PWA static mount
+│   ├── config.py               # Central configuration and environment settings
+│   ├── models.py               # Pydantic schemas and contracts
+│   ├── database.py             # SQLite database connection & table setup
+│   ├── risk_service.py         # Real-time hazard computation & weather assimilation
+│   ├── trip_planner.py         # Time-aware route planning & ETA calculators
+│   ├── consequence_service.py   # Civil infrastructure vulnerability & BRO priority
+│   ├── flywheel_service.py     # Ground-truth crowd report validation & model triggers
+│   ├── alert_dispatcher.py     # Periodic 10-minute alert evaluation worker
+│   ├── i18n.py                 # Bilingual translation layer (English & Hindi)
+│   ├── limiter.py              # SlowAPI DDoS rate limiter
+│   ├── middleware.py           # Request logging, correlation ID, timing headers
+│   ├── routes/                 # Modular endpoint controllers
+│   │   ├── risk.py             # /risk-map, /route-risk, /priority-list, /voice-alert
+│   │   ├── closures.py         # /closures, /admin/closure
+│   │   ├── reports.py          # /field-report, /admin/validate-report
+│   │   ├── subscriptions.py    # /subscribe, /alerts
+│   │   ├── history.py          # /history
+│   │   └── webhooks.py         # /webhook/sms (Twilio)
+│   ├── notifiers/              # Messaging drivers (Twilio, Telegram, Console)
+│   └── static/                 # Frontend UI (index.html, sw.js, manifest.json)
+├── data/                       # Persistent data, caches, and geomorphic records
+│   ├── landslide_nh7.db        # SQLite database (auto-seeded on first run)
+│   ├── rain_snapshot.json      # Offline fallback rainfall cache
+│   ├── segment_consequence.csv # Civil asset criticality & hospital proximities
+│   ├── backtest_events.csv     # Historical monsoon ground-truth disaster events
+│   └── tts_cache/              # Cached synthesized MP3 audio alerts
+├── geojson/                    # Spatial corridor geometry
+│   └── nh7_route.geojson       # Complete 247.37 km NH-7 highway polyline
+├── model/                      # Data science models, training code & research assets
+│   ├── nh7_static_model_v2.joblib # Trained Random Forest v2
+│   ├── build_static_dataset.py # DEM feature extraction & geomorphic preprocessing
+│   └── dem_cache/              # Copernicus 30m Digital Elevation Model TIF
+├── scripts/                    # Command-line audit, backtest & utility tools
+│   ├── backtest.py             # Replay historical storm events & compute metrics
+│   ├── validation_audit.py     # Comprehensive 6-fold spatial CV audit runner
+│   ├── smoke.py                # Fast endpoint health and contract verification
+│   └── demo_check.py           # Pre-flight check script before live presentations
+├── tests/                      # Automated test suite (122 test cases)
+│   ├── contract/               # Golden schema regression tests
+│   └── test_*.py               # Functional, security, freshness, and route tests
+├── FEATURES.md                 # Complete feature accounting catalog
+├── MODEL_PERFORMANCE.md        # Technical model performance report & metrics
+├── FRONTEND_TESTING_GUIDE.md   # Step-by-step browser testing walkthrough
+├── reset_db.py                 # One-click database wipe & re-seed utility
+├── run.py                      # Production/Dev server launcher
+└── requirements.txt            # Python dependencies
+```
+
+---
+
+## 📡 API Endpoints Cheat Sheet
+
+Here are the most important endpoints you can try right now via `curl` or in your browser:
+
+| Method | Endpoint | Description | Example Query |
+|---|---|---|---|
+| `GET` | `/health` | Server health, database status, and uptime | `curl http://localhost:8000/health` |
+| `GET` | `/risk-map` | Real-time risk for all 18 NH-7 segments | `curl http://localhost:8000/risk-map` |
+| `GET` | `/risk-map?simulate_rain_mm=120` | Stress-test with simulated 120mm cloudburst | Test via browser or curl |
+| `GET` | `/risk-map?as_of=2023-08-14` | Replay past monsoon event (requires `BACKTEST_ENABLED=true`) | Replay past monsoon event |
+| `GET` | `/route-risk` | Journey risk assessment & time-aware planner | `curl "http://localhost:8000/route-risk?from_segment=...&to_segment=..."` |
+| `GET` | `/priority-list` | BRO infrastructure consequence & priority | `curl http://localhost:8000/priority-list` |
+| `GET` | `/closures` | Active road closures & bypass advisories | `curl http://localhost:8000/closures` |
+| `POST` | `/field-report` | Crowd-sourced hazard report (3km geofence) | Submit road condition report |
+| `GET` | `/voice-alert?lang=hi` | Stream bilingual neural audio alert (MP3) | Open in browser to listen |
+| `GET` | `/offline-pack` | Lightweight JSON (<17 KB) with ETag/304 | `curl -i http://localhost:8000/offline-pack` |
+| `POST` | `/webhook/sms` | Twilio SMS inbound query webhook (TwiML) | Test SMS commands (`NH7 HELP`) |
+
+*Full interactive documentation and testing sandbox available at [http://localhost:8000/docs](http://localhost:8000/docs).*
+
+---
+
+## 🧭 Trip Recommendation Enum & Decision Rules
+
+To maintain rigorous safety integrity and avoid false assurances of safety in active Himalayan landslide territory, the recommendation engine follows strict canonical rules across the Backend, UI, and Alerts.
+
+> **⚠️ Persistent Safety Disclaimer:**  
+> *"Decision-support prototype, not an official warning. Low risk does not mean safe. Landslides also occur in dry weather. Follow BRO/SDRF/police advisories. Emergency: 112"*  
+> *(Devanagari: "निर्णय-समर्थन प्रोटोटाइप, आधिकारिक चेतावनी नहीं। कम जोखिम का अर्थ सुरक्षित नहीं है। सूखे मौसम में भी भूस्खलन हो सकता है। बीआरओ/एसडीआरएफ/पुलिस सलाह का पालन करें। आपातकाल: 112")*
+
+The engine outputs exactly four canonical actions (`action` string, `action_code` enum):
+
+| Action (`action`) | Code (`action_code`) | Hindi Localized (`lang=hi`) | Operational Trigger / Condition |
+|---|---|---|---|
+| **`LOW RISK – proceed with caution`** | `REC_LOW_RISK_CAUTION` | कम जोखिम – सावधानी बरतें | All corridor route segments are evaluated at `Low` risk at planned departure. *(Note: Low risk does not mean safe; landslides also occur in dry weather).* |
+| **`CAUTION`** | `REC_CAUTION` | सावधानी बरतें | Moderate landslide hazard (`Moderate`, rank 1) modeled along the route, OR a non-blocking traffic restriction (`one_way` / `restricted`) is active. |
+| **`DELAY`** | `REC_DELAY` | यात्रा में विलंब करें | **Elevated risk (`High` or `Very High`, rank $\ge 2$) is detected at the planned departure time, BUT a lower-risk departure window (`best_rank < base_rank`, e.g. drops to Moderate or Low) exists within the 48-hour forward forecast search.** |
+| **`AVOID`** | `REC_AVOID` | यात्रा से बचें | An active official road closure (`status == "closed"`) is in effect along the route, OR severe landslide hazard (`High` / `Very High`) persists across all 48 hours of the forecast horizon with no lower-risk window. |
+
+### ⏱️ Exactly When `DELAY` is Returned
+`DELAY` is returned **if and only if**:
+1. At the traveler's planned departure timestamp (`depart_time`), the route encounters elevated landslide hazard (`High` or `Very High`, risk rank $\ge 2$).
+2. The 48-hour forward hourly forecast simulation discovers at least one future departure time where the route's maximum hazard rank is **strictly lower** than the base departure (`best_rank < base_rank`, such as after a rainstorm clears or a localized cloudburst peak subsides).
+3. The response payload returns `hours_delay` (number of hours to wait) and `best_depart_time` (recommended departure timestamp) along with up to 3 alternate ranked departure windows in `best_departure_options`.
+
+---
+
+## 🤖 Model Performance Snapshot
+
+- **Official Validated Deployed Model:** Copernicus 30m DEM + Random Forest v2 (`model/nh7_static_model_v2.joblib`).
+- **Trained On:** 309 field-mapped road-blocking landslide scars along NH-7 from published research (*Mey et al., 2024, Natural Hazards and Earth System Sciences*).
+- **Spatial Resolution:** 30-meter Copernicus DEM features (Slope, Local Relief 300m, Curvature, TPI, Aspect).
+- **Pooled Out-of-Fold ROC-AUC:** **0.767** (Leave-One-Block-Out spatial CV, 95% CI: `[0.680, 0.802]`).
+- **Spatial Block Mean AUC:** **0.664** (across 6 spatial blocks with 2.0 km exclusion buffer).
+- **Average Precision (PR-AUC):** **0.533**, **Top-20% Highway Capture Rate:** **43.0%**.
+- **Spearman Rank Correlation ($\rho$):** **0.653** ($p = 0.0033$), verifying strong statistical concordance with ground-truth landslide frequency.
+- **Dynamic Meteorological Layer:** Weighted linear-capped live rainfall heuristic ($\text{score} = \min(0.60 \times \text{terrain} + 0.40 \times \min(R_{3\text{d}}/100, 1.0), 1.0)$, with $25\text{ mm}$ dry-weather cap).
+
+👉 *For the complete model card, confusion matrices, and backtest results, check [MODEL_PERFORMANCE.md](MODEL_PERFORMANCE.md).*
+
+---
+
+## 🧪 Running the Automated Tests
+
+Our test suite provides strong validation against regressions across API contracts, guardrails, and physics calculations:
+
+```bash
+# Run all 130 automated tests
+python -m pytest
+```
+
+Output:
+```
+============================= test session starts =============================
+platform win32 -- Python 3.14.6, pytest-9.0.3
+collected 130 items
+
+tests/contract/test_contract.py ..................                       [ 13%]
+tests/contract/test_golden_schema.py .........                           [ 20%]
+tests/test_alert_delivery_task6.py ......                                [ 25%]
+tests/test_backtest_task2.py ......                                      [ 30%]
+tests/test_closures_and_flywheel_task5.py .......                        [ 35%]
+tests/test_consequence_task4.py ......                                   [ 40%]
+tests/test_freshness_f2.py .......                                       [ 45%]
+tests/test_localization_and_voice_task7.py .......                       [ 50%]
+tests/test_model_info_f3.py ........                                     [ 56%]
+tests/test_offline_pack_task8.py .......                                 [ 62%]
+tests/test_production_f5.py ......                                       [ 66%]
+tests/test_risk_resilience.py ........                                   [ 73%]
+tests/test_route_geometry.py .....                                       [ 76%]
+tests/test_security_f1.py .............                                  [ 86%]
+tests/test_trip_planner_task3.py ....                                    [ 90%]
+tests/test_validation_audit_f4.py ......                                 [ 94%]
+tests/test_weather_upgrade_task1.py .......                              [100%]
+
+======================== 130 tests passing ========================
+```
+
+---
+
+## 🛠️ Environment Variables Configuration
+
+The system works out-of-the-box with default values. To configure production integrations (SMS, Telegram, Admin Keys, Model Parameters), create a `.env` file or export environment variables:
+
+```bash
+# Environment Mode: 'development' or 'production'
+ENV=development
+
+# Admin Secret Key (used for closure updates & report validations)
+ADMIN_API_KEY=admin-dev-secret-key-nh7
+
+# Twilio SMS Credentials (Optional for live SMS delivery)
+TWILIO_ACCOUNT_SID=
+TWILIO_AUTH_TOKEN=
+TWILIO_FROM=                          # E.164 phone or shortcode (e.g. +1234567890; TWILIO_PHONE_NUMBER also supported)
+
+# Telegram Bot Credentials (Optional for live bot polling)
+TELEGRAM_BOT_TOKEN=
+ENABLE_TELEGRAM_BOT=false
+
+# Alert Dispatcher Polling Interval (in minutes, default: 10; ALERT_CHECK_INTERVAL in sec also supported)
+ALERT_DISPATCH_INTERVAL_MINUTES=10
+
+# Safe Mode: True simulates delivery in logs without hitting external messaging APIs
+DRY_RUN=true
+
+# Model & Risk Calibration Parameters (Uncalibrated Demo Heuristics)
+RAIN_REF_MM=150.0                     # 3-day rainfall saturation constant (prevents saturation below 150mm)
+TERRAIN_FLOOR=0.35                    # Baseline susceptibility floor allowing low-rank segments to escalate
+DRY_CAP_MM=25.0                       # Reference dry condition threshold (25mm)
+DRY_RAMP_LOW_MM=15.0                  # Lower bound of dry-cap linear ramp (<=15mm capped at Moderate <=0.49)
+DRY_RAMP_HIGH_MM=35.0                 # Upper bound of dry-cap linear ramp (>=35mm full response)
+DRY_CAP_MAX_SCORE=0.49                # Moderate ceiling score under dry conditions
+```
+
+---
+
+## 📖 Additional Documentation Guides
+
+- [ANTIGRAVITY_BACKEND_CONTEXT.md](ANTIGRAVITY_BACKEND_CONTEXT.md) — 🧠 Comprehensive AI Agent specification with every route, request schema, and response payload.
+- [AGENTS.md](AGENTS.md) — Antigravity IDE & CLI agent instructions and engineering guidelines.
+- [FEATURES.md](FEATURES.md) — Exhaustive accounting of all 12 feature domains and database schemas.
+- [MODEL_PERFORMANCE.md](MODEL_PERFORMANCE.md) — In-depth data science report, spatial CV benchmarks, and model card.
+- [FRONTEND_TESTING_GUIDE.md](FRONTEND_TESTING_GUIDE.md) — Step-by-step browser walkthrough to test every button and tab from the UI.
+- [CHANGELOG.md](CHANGELOG.md) — Chronological integration history across all hackathon tasks.
+
+---
+
+## 🏆 Acknowledgements & Data Attribution
+
+- **Geological Research:** Mey, J., et al. (2024). *Landslides triggered by the 2022 monsoon along National Highway 7, Uttarakhand, India*. Natural Hazards and Earth System Sciences (NHESS).
+- **Elevation Data:** European Space Agency (ESA) Copernicus 30m Digital Elevation Model.
+- **Meteorological Data:** Open-Meteo Weather API & ECMWF ERA5-Land Reanalysis.
+- **Highway Alignment:** OpenStreetMap (OSM) Contributors & National Highways Authority of India (NHAI).
+- **Built for:** IBM x Jigyasa Hackathon 2026.

@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Raah Node Live</title>
+<style>
+  :root {
+    --bg: #0b1220; --panel: #111a2c; --line: #24324d; --text: #e6edf7; --muted: #8fa3bf;
+    --ok: #10b981; --watch: #eab308; --warning: #f97316; --alarm: #ef4444; --lost: #a855f7; --off: #64748b;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.4 system-ui, Segoe UI, Roboto, sans-serif; }
+  header { padding: 14px 20px; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  header h1 { margin: 0; font-size: 22px; }
+  .disclaimer { color: #fca5a5; font-size: 13px; }
+  main { padding: 16px 20px; display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+  h2 { margin: 0 0 10px; font-size: 15px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .node { border: 2px solid var(--line); border-radius: 10px; padding: 12px; margin-bottom: 10px; }
+  .node .top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .state { font-size: 34px; font-weight: 800; letter-spacing: .02em; }
+  .pill { padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; border: 1px solid currentColor; }
+  .label { background: #fde68a; color: #111; padding: 2px 6px; border-radius: 4px; font-size: 12px; font-weight: 800; }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 8px; font-size: 13px; color: var(--muted); }
+  .grid b { display: block; color: var(--text); font-size: 18px; }
+  .lost-banner { margin-top: 8px; padding: 8px; border-radius: 6px; background: rgba(168,85,247,.15); color: #e9d5ff; font-weight: 600; }
+  button { background: #2563eb; color: #fff; border: 0; padding: 9px 14px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 14px; }
+  button.secondary { background: #334155; }
+  input { background: #0b1220; color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 7px 9px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 600; }
+  .rec { font-size: 26px; font-weight: 800; }
+  .muted { color: var(--muted); font-size: 13px; }
+  svg { width: 100%; height: 160px; background: #0b1220; border-radius: 6px; }
+  .err { color: #fca5a5; font-size: 13px; }
+  @media (max-width: 600px) { main { padding: 12px 16px; } .state { font-size: 26px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Raah Node Live</h1>
+  <span class="disclaimer">Bench-calibrated prototype. Not an official warning. Emergency: 112</span>
+  <span style="flex:1"></span>
+  <input id="key" type="password" placeholder="Node or admin key" style="width:180px" />
+  <input id="markLabel" placeholder="Mark label" value="event" style="width:120px" />
+  <button id="markBtn" title="Press at the instant of the physical event">Mark event now</button>
+</header>
+<main>
+  <section>
+    <h2>Nodes</h2>
+    <div id="nodes"><span class="muted">Waiting for the first reading...</span></div>
+    <div id="err" class="err"></div>
+  </section>
+  <section>
+    <h2>Trip planner for the node's stretch</h2>
+    <div id="rec" class="rec">-</div>
+    <div id="recReason" class="muted"></div>
+    <h2 style="margin-top:16px">Tilt (deg) and vibration (g x10), last 5 min</h2>
+    <svg id="chart" viewBox="0 0 600 160" preserveAspectRatio="none"></svg>
+    <div class="muted" id="chartNode"></div>
+  </section>
+  <section style="grid-column: 1 / -1">
+    <h2>Incidents (all times on the laptop clock)</h2>
+    <table>
+      <thead><tr><th>#</th><th>Node</th><th>Segment</th><th>Peak</th><th>Mark</th><th>Mark → server</th>
+        <th>Mark → ALARM</th><th>ALARM → alert</th><th>Duration</th><th>Status</th></tr></thead>
+      <tbody id="incidents"></tbody>
+    </table>
+  </section>
+</main>
+<script>
+const COLORS = { OK: "var(--ok)", WATCH: "var(--watch)", WARNING: "var(--warning)", ALARM: "var(--alarm)" };
+const STATUS_COLORS = { ONLINE: "var(--ok)", STALE: "var(--watch)", OFFLINE: "var(--off)", SENSOR_LOST: "var(--lost)" };
+const keyInput = document.getElementById("key");
+try { keyInput.value = localStorage.getItem("raah_node_key") || ""; } catch (e) {}
+keyInput.addEventListener("change", () => { try { localStorage.setItem("raah_node_key", keyInput.value); } catch (e) {} });
+
+const fmtMs = v => v == null ? "-" : (v / 1000).toFixed(2) + " s";
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+async function getJSON(path) {
+  const r = await fetch(path, { cache: "no-store" });
+  if (!r.ok) throw new Error(path + " -> " + r.status);
+  return r.json();
+}
+
+function renderNodes(fleet) {
+  const el = document.getElementById("nodes");
+  if (!fleet.nodes.length) { el.innerHTML = '<span class="muted">No node has reported yet. Start the ESP32 or tools/mock_node.py.</span>'; return; }
+  el.innerHTML = fleet.nodes.map(n => {
+    const r = n.reading || {}, h = n.health || {};
+    const lost = n.status === "SENSOR_LOST";
+    const border = lost ? "var(--lost)" : (n.status === "ONLINE" ? COLORS[n.state] : "var(--line)");
+    return `<div class="node" style="border-color:${border}">
+      <div class="top">
+        <div><b>${esc(n.node_id)}</b> · ${esc(n.segment_id)} ${n.label ? `<span class="label">${n.label}</span>` : ""}</div>
+        <span class="pill" style="color:${STATUS_COLORS[n.status]}">${n.status} · ${n.age_s}s</span>
+      </div>
+      ${(n.status === "ONLINE" || lost)
+        ? `<div class="state" style="color:${COLORS[n.state]}">${n.state}</div>`
+        : `<div class="state" style="color:var(--off)">${n.status} <span style="font-size:15px">· last state ${n.state}${n.acked_ms ? " (site checked)" : ""}</span></div>`}
+      <div class="grid">
+        <div>Tilt<b>${r.tilt_deg ?? "-"}°</b></div><div>Rate<b>${r.tilt_rate_dpm ?? "-"}</b></div>
+        <div>Vib peak<b>${r.vib_g ?? "-"} g</b></div><div>Moisture<b>${r.moisture_pct ?? "-"}%</b></div>
+      </div>
+      <div class="muted" style="margin-top:6px">fw ${esc(h.fw ?? "-")} · RSSI ${h.rssi_dbm ?? "-"} · RTT ${h.rtt_ms ?? "-"} ms · outbox ${h.buffered ?? "-"} ·
+        delivered ${n.delivery?.delivered_pct ?? "-"}%</div>
+      ${lost ? `<div class="lost-banner">SENSOR LOST: went silent after ${n.state}. Holding the alert until the site is checked.
+        <button class="secondary" onclick="ack('${esc(n.node_id)}')">Site checked (release)</button></div>` : ""}
+    </div>`;
+  }).join("");
+}
+
+function renderIncidents(data) {
+  document.getElementById("incidents").innerHTML = data.incidents.map(i => `<tr>
+    <td>${i.id}</td><td>${esc(i.node_id)} ${i.label ? `<span class="label">${i.label}</span>` : ""}</td><td>${esc(i.segment_id)}</td>
+    <td style="color:${COLORS[i.peak_state]}">${i.peak_state}</td><td>${esc(i.mark_label ?? "-")}</td>
+    <td>${fmtMs(i.mark_to_server_ms)}</td><td>${fmtMs(i.mark_to_alarm_ms)}</td>
+    <td>${fmtMs(i.alarm_to_alert_ms)}${i.alert_channel ? ` <span class="muted">${esc(i.alert_channel)}</span>` : ""}</td>
+    <td>${i.duration_s}s</td><td>${i.open ? (i.node_status === "SENSOR_LOST" ? "SENSOR LOST" : "open") : esc(i.close_reason)}</td>
+  </tr>`).join("") || '<tr><td colspan="10" class="muted">No incidents yet.</td></tr>';
+}
+
+async function renderPlanner(seg) {
+  const n = parseInt(seg.slice(4), 10);
+  const from = "seg_" + String(Math.max(1, n - 1)).padStart(2, "0"), to = "seg_" + String(Math.min(18, n + 1)).padStart(2, "0");
+  const rr = await getJSON(`/route-risk?from_segment=${from}&to_segment=${to}`);
+  const rec = rr.recommendation;
+  const action = rec ? rec.action : (rr.max_risk_level === "Low" ? "LOW RISK" : rr.max_risk_level);
+  const recEl = document.getElementById("rec");
+  recEl.textContent = `${from} → ${to}: ${action}`;
+  recEl.style.color = action === "AVOID" ? "var(--alarm)" : (action.startsWith("CAUTION") ? "var(--warning)" : "var(--ok)");
+  document.getElementById("recReason").textContent = rec ? rec.reason : rr.advisory;
+}
+
+async function renderChart(nodeId) {
+  const h = await getJSON(`/node/history?node_id=${encodeURIComponent(nodeId)}&minutes=5`);
+  const pts = h.readings.filter(r => !r.late);
+  const svg = document.getElementById("chart");
+  document.getElementById("chartNode").textContent = `${nodeId}: ${pts.length} live readings (late outbox readings hidden)`;
+  if (pts.length < 2) { svg.innerHTML = ""; return; }
+  const t0 = pts[0].server_ms, t1 = pts[pts.length - 1].server_ms || t0 + 1;
+  const x = t => 600 * (t - t0) / Math.max(1, t1 - t0);
+  const y = v => 155 - Math.min(150, (v || 0) * 12);
+  const line = (key, scale, color) => `<polyline fill="none" stroke="${color}" stroke-width="2"
+     points="${pts.map(p => `${x(p.server_ms).toFixed(1)},${y((p[key] || 0) * scale).toFixed(1)}`).join(" ")}" />`;
+  svg.innerHTML = `<line x1="0" x2="600" y1="${y(5)}" y2="${y(5)}" stroke="#7c2d12" stroke-dasharray="4 4" />
+    <line x1="0" x2="600" y1="${y(8)}" y2="${y(8)}" stroke="#7f1d1d" stroke-dasharray="4 4" />
+    ${line("tilt_deg", 1, "#60a5fa")}${line("vib_g", 10, "#f472b6")}`;
+}
+
+async function tick() {
+  try {
+    const [fleet, inc] = await Promise.all([getJSON("/node/fleet"), getJSON("/node/incidents?limit=8")]);
+    renderNodes(fleet);
+    renderIncidents(inc);
+    // Follow the node that matters now: escalating first, then online, then any real/mock/replay node
+    const real = fleet.nodes.filter(n => !n.is_simulated);
+    const main = real.find(n => n.escalates) || real.find(n => n.status === "ONLINE") || real[0];
+    if (main) { await Promise.all([renderPlanner(main.segment_id), renderChart(main.node_id)]); }
+    document.getElementById("err").textContent = "";
+  } catch (e) {
+    document.getElementById("err").textContent = "Backend not reachable: " + e.message;
+  }
+}
+
+document.getElementById("markBtn").addEventListener("click", async () => {
+  const k = keyInput.value.trim();
+  const r = await fetch("/node/mark", { method: "POST", headers: { "Content-Type": "application/json", "X-Node-Key": k, "X-Admin-Key": k },
+    body: JSON.stringify({ label: document.getElementById("markLabel").value || "event" }) });
+  document.getElementById("err").textContent = r.ok ? "" : "Mark failed: HTTP " + r.status + " (enter the node or admin key)";
+});
+
+async function ack(nodeId) {
+  const k = keyInput.value.trim();
+  const r = await fetch(`/node/ack/${encodeURIComponent(nodeId)}`, { method: "POST", headers: { "X-Admin-Key": k } });
+  document.getElementById("err").textContent = r.ok ? "" : "Release failed: HTTP " + r.status + " (needs the admin key)";
+  tick();
+}
+
+tick();
+setInterval(tick, 2000);
+</script>
+</body>
+</html>
