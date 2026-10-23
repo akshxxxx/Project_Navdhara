@@ -1,0 +1,1125 @@
+{
+  "from_segment": "seg_01",
+  "to_segment": "seg_18",
+  "from_segment_name": "Rishikesh to Shivpuri",
+  "to_segment_name": "Helang to Joshimath",
+  "date": "2026-10-06",
+  "total_segments": 18,
+  "max_risk_level": "High",
+  "average_risk_score": 0.36,
+  "risk_index": 0.36,
+  "advisory": "ELEVATED RISK for 2026-10-06: Moderate to severe landslide vulnerability detected along certain passes. Ensure daytime transit and maintain safe distance from steep exposed cuttings.",
+  "segments": [
+    {
+      "id": "seg_01",
+      "name": "Rishikesh to Shivpuri",
+      "sequence_order": 1,
+      "start_lat": 30.0869,
+      "start_lng": 78.2676,
+      "end_lat": 30.1357,
+      "end_lng": 78.3892,
+      "subpoints": [
+        [
+          30.0869,
+          78.2676
+        ],
+        [
+          30.098,
+          78.305
+        ],
+        [
+          30.115,
+          78.345
+        ],
+        [
+          30.1357,
+          78.3892
+        ]
+      ],
+      "subpoint_risk_scores": [
+        0.47,
+        0.48,
+        0.4,
+        0.54
+      ],
+      "risk_level": "Moderate",
+      "risk_score": 0.51,
+      "risk_index": 0.51,
+      "terrain_percentile": 0.76,
+      "terrain_level": "Moderate",
+      "terrain_status": "ok",
+      "rain_mm_3d": 13.4,
+      "rain_status": "ok",
+      "main_driver": "unusual elevation for this road (low, z=-1.2)",
+      "method": "terrain model ranking + live-rainfall heuristic (not calibrated)",
+      "r3d_mm": null,
+      "rain_24h_mm": null,
+      "forecast_24h_mm": null,
+      "forecast_72h_mm": null,
+      "peak_hour_utc": null,
+      "peak_mm": null,
+      "eta_ist": "2026-10-06T07:13:35+05:30",
+      "rain_72h_at_eta_mm": 0,
+      "forecast_rain_6h_around_eta_mm": 0,
+      "risk_level_at_eta": "Moderate",
+      "closure": null,
+      "adjusted_risk_level": null,
+      "ground_report_count_24h": null,
+      "adjustment_reason": null,
+      "name_en": null,
+      "risk_level_en": null,
+      "main_driver_en": null,
+      "risk_level_at_eta_en": null
+    },
+    {
+      "id": "seg_02",
+      "name": "Shivpuri to Byasi",
+      "sequence_order": 2,
+      "start_lat": 30.1357,
+      "start_lng": 78.3892,
+      "end_lat": 30.1472,
+      "end_lng": 78.4839,
+      "subpoints": [
+        [
+          30.1357,
+          78.3892
+        ],
+        [
+          30.141,
+          78.42
+        ],
+        [
+          30.144,
+          78.455
+        ],
+        [
+          30.1472,
+          78.4839
+        ]
+      ],
+      "subpoint_risk_scores": [
+        0.74,
+        0.47,
+        0.48,
+        0.53
+      ],
+      "risk_level": "Moderate",
+      "risk_score": 0.62,
+      "risk_index": 0.62,
+      "terrain_percentile": 0.94,
+      "terrain_level": "High",
+      "terrain_status": "ok",
+      "rain_mm_3d": 13.3,
+      "rain_status": "ok",
+      "main_driver": "unusual elevation for this road (low, z=-1.1)",
+      "method": "terrain model ranking + live-rainfall heuristic (not calibrated)",
+      "r3d_mm": null,
+      "rain_24h_mm": null,
+      "forecast_24h_mm": null,
+      "forecast_72h_mm": null,
+      "peak_hour_utc": null,
+      "peak_mm": null,
+      "eta_ist": "2026-10-06T07:48:27+05:30",
+      "rain_72h_at_eta_mm": 0,
+      "forecast_rain_6h_around_eta_mm": 0,
+      "risk_level_at_eta": "Moderate",
+      "closure": null,
+      "adjusted_risk_level": null,
+      "ground_report_count_24h": null,
+      "adjustment_reason": null,
+      "name_en": null,
+      "risk_level_en": null,
+      "main_driver_en": null,
+      "risk_level_at_eta_en": null
+    },
+    {
+      "id": "seg_03",
+      "name": "Byasi to Kaudiyala",
+      "sequence_order": 3,
+      "start_lat": 30.1472,
+      "start_lng": 78.4839,
+      "end_lat": 30.0765,
+      "end_lng": 78.5028,
+      "subpoints": [
+        [
+          30.1472,
+          78.4839
+        ],
+        [
+          30.12,
+          78.49
+        ],
+        [
+          30.095,
+          78.498
+        ],
+        [
+          30.0765,
+          78.5028
+        ]
+      ],
+      "subpoint_risk_scores": [
+        0.74,
+        0.43,
+        0.45,
+        0.64
+      ],
+      "risk_level": "Moderate",
+      "risk_score": 0.61,
+      "risk_index": 0.61,
+      "terrain_percentile": 0.88,
+      "terrain_level": "High",
+      "terrain_status": "ok",
+      "rain_mm_3d": 19.9,
+      "rain_status": "ok",
+      "main_driver": "unusual elevation for this road (low, z=-1.0)",
+      "method": "terrain model ranking + live-rainfall heuristic (not calibrated)",
+      "r3d_mm": null,
+      "rain_24h_mm": null,
+      "forecast_24h_mm": null,
+      "forecast_72h_mm": null,
+      "peak_hour_utc": null,
+      "peak_mm": null,
+      "eta_ist": "2026-10-06T08:02:06+05:30",
+      "rain_72h_at_eta_mm": 0,
+      "forecast_rain_6h_around_eta_mm": 0,
+      "risk_level_at_eta": "Moderate",
+      "closure": null,
+      "adjusted_risk_level": null,
+      "ground_report_count_24h": null,
+      "adjustment_reason": null,
+      "name_en": null,
+      "risk_level_en": null,
+      "main_driver_en": null,
+      "risk_level_at_eta_en": null
+    },
+    {
+      "id": "seg_04",
+      "name": "Kaudiyala to Devprayag",
+      "sequence_order": 4,
+      "start_lat": 30.0765,
+      "start_lng": 78.5028,
+      "end_lat": 30.1459,
+      "end_lng": 78.5986,
+      "subpoints": [
+        [
+          30.0765,
+          78.5028
+        ],
+        [
+          30.095,
+          78.535
+        ],
+        [
+          30.125,
+          78.57
+        ],
+        [
+          30.1459,
+          78.5986
+        ]
+      ],
+      "subpoint_risk_scores": [
+        0.71,
+        0.52,
+        0.64,
+        0.51
+      ],
+      "risk_level": "Moderate",
+      "risk_score": 0.57,
+      "risk_index": 0.57,
+      "terrain_percentile": 0.82,
+      "terrain_level": "Moderate",
+      "terrain_status": "ok",
+      "rain_mm_3d": 19.9,
+      "rain_status": "ok",
+      "main_driver": "unusual slope aspect (north-south) for this road (low, z=-0.7)",
+      "method": "terrain model ranking + live-rainfall heuristic (not calibrated)",
+      "r3d_mm": null,
+      "rain_24h_mm": null,
+      "forecast_24h_mm": null,
+      "forecast_72h_mm": null,
+      "peak_hour_utc": null,
+      "peak_mm": null,
+      "eta_ist": "2026-10-06T08:29:50+05:30",
+      "rain_72h_at_eta_mm": 0,
+      "forecast_rain_6h_around_eta_mm": 0,
+      "risk_level_at_eta": "Moderate",
+      "closure": null,
+      "adjusted_risk_level": null,
+      "ground_report_count_24h": null,
+      "adjustment_reason": null,
+      "name_en": null,
+      "risk_level_en": null,
+      "main_driver_en": null,
+      "risk_level_at_eta_en": null
+    },
+    {
+      "id": "seg_05",
+      "name": "Devprayag to Teen Dhara",
+      "sequence_order": 5,
+      "start_lat": 30.1459,
+      "start_lng": 78.5986,
+      "end_lat": 30.2015,
+      "end_lng": 78.682,
+      "subpoints": [
+        [
+          30.1459,
+          78.5986
+        ],
+        [
+          30.165,
+          78.625
+        ],
+        [
+          30.185,
+          78.655
+        ],
+        [
+          30.2015,
+          78.682
+        ]
+      ],
+      "subpoint_risk_scores": [
+        0.62,
+        0.72,
+        0.79,
+        0.69
+      ],
+      "risk_level": "High",
+      "risk_score": 0.73,
+      "risk_index": 0.73,
+      "terrain_percentile": 1,
+      "terrain_level": "High",
+      "terrain_status": "ok",
+      "rain_mm_3d": 32.5,
+      "rain_status": "ok",
+      "main_driver": "unusual elevation for this road (low, z=-0.8)",
+      "method": "terrain model ranking + live-rainfall heuristic (not calibrated)",
+      "r3d_mm": null,
+      "rain_24h_mm": null,
+      "forecast_24h_mm": null,
+      "forecast_72h_mm": null,
+      "peak_hour_utc": null,
+      "peak_mm": null,
+      "eta_ist": "2026-10-06T09:34:51+05:30",
+      "rain_72h_at_eta_mm": 0,
+      "forecast_rain_6h_around_eta_mm": 0,
+      "risk_level_at_eta": "Moderate",
+      "closure": null,
+      "adjusted_risk_level": null,
+      "ground_report_count_24h": null,
+      "adjustment_reason": null,
+      "name_en": null,
+      "risk_level_en": null,
+      "main_driver_en": null,
+      "risk_level_at_eta_en": null
+    },
+    {
+      "id": "seg_06",
+      "name": "Teen Dhara to Kirtinagar",
+      "sequence_order": 6,
+      "start_lat": 30.2015,
+      "start_lng": 78.682,
+      "end_lat": 30.2173,
+      "end_lng": 78.7456,
+      "subpoints": [
+        [
+          30.2015,
+          78.682
+        ],
+        [
+          30.208,
+          78.705
+        ],
+        [
+          30.213,
+          78.725
+        ],
+        [
+          30.2173,
+          78.7456
+        ]
+      ],
+      "subpoint_risk_scores": [
+        0.59,
+        0.28,
+        0.46,
+        0.49
+      ],
+      "risk_level": "Moderate",
+      "risk_score": 0.39,
+      "risk_index": 0.39,
+      "terrain_percentile": 0.53,
+      "terrain_level": "Moderate",
+      "terrain_status": "ok",
+      "rain_mm_3d": 17.4,
+      "rain_status": "ok",
+      "main_driver": "unusual elevation for this road (low, z=-0.8)",
+      "method": "terrain model ranking + live-rainfall heuristic (not calibrated)",
+      "r3d_mm": null,
+      "rain_24h_mm": null,
+      "forecast_24h_mm": null,
+      "forecast_72h_mm": null,
+      "peak_hour_utc": null,
+      "peak_mm": null,
+      "eta_ist": "2026-10-06T10:04:44+05:30",
+      "rain_72h_at_eta_mm": 0,
+      "forecast_rain_6h_around_eta_mm": 0,
+      "risk_level_at_eta": "Moderate",
+      "closure": null,
+      "adjusted_risk_level": null,
+      "ground_report_count_24h": null,
+      "adjustment_reason": null,
+      "name_en": null,
+      "risk_level_en": null,
+      "main_driver_en": null,
+      "risk_level_at_eta_en": null
+    },
+    {
+      "id": "seg_07",
+      "name": "Kirtinagar to Srinagar",
+      "sequence_order": 7,
+      "start_lat": 30.2173,
+      "start_lng": 78.7456,
+      "end_lat": 30.2224,
+      "end_lng": 78.7845,
+      "subpoints": [
+        [
+          30.2173,
+          78.7456
+        ],
+        [
+          30.2195,
+          78.76
+        ],
+        [
+          30.2224,
+          78.7845
+        ]
+      ],
+      "subpoint_risk_scores": [
+        0.33,
+        0.5,
+        0.5
+      ],
+      "risk_level": "Moderate",
+      "risk_score": 0.46,
+      "risk_index": 0.46,
+      "terrain_percentile": 0.65,
+      "terrain_level": "Moderate",
+      "terrain_status": "ok",
+      "rain_mm_3d": 17.4,
+      "rain_status": "ok",
+      "main_driver": "unusual local relief for this road (low, z=-1.4)",
+      "method": "terrain model ranking + live-rainfall heuristic (not calibrated)",
+      "r3d_mm": null,
+      "rain_24h_mm": null,
+      "forecast_24h_mm": null,
+      "forecast_72h_mm": null,
+      "peak_hour_utc": null,
+      "peak_mm": null,
+      "eta_ist": "2026-10-06T10:29:40+05:30",
+      "rain_72h_at_eta_mm": 0,
+      "forecast_rain_6h_around_eta_mm": 0,
+      "risk_level_at_eta": "Moderate",
+      "closure": null,
+      "adjusted_risk_level": null,
+      "ground_report_count_24h": null,
+      "adjustment_reason": null,
+      "name_en": null,
+      "risk_level_en": null,
+      "main_driver_en": null,
+      "risk_level_at_eta_en": null
+    },
+    {
+      "id": "seg_08",
+      "name": "Srinagar to Sirobagarh",
+      "sequence_order": 8,
+      "start_lat": 30.2224,
+      "start_lng": 78.7845,
+      "end_lat": 30.239,
+      "end_lng": 78.854,
+      "subpoints": [
+        [
+          30.2224,
+          78.7845
+        ],
+        [
+          30.228,
+          78.81
+        ],
+        [
+          30.234,
+          78.835
+        ],
+        [
+          30.239,
+          78.854
+        ]
+      ],
+      "subpoint_risk_scores": [
+        0.31,
+        0.08,
+        0.38,
+        0.27
+      ],
+      "risk_level": "Low",
+      "risk_score": 0.08,
+      "risk_index": 0.08,
+      "terrain_percentile": 0.06,
+      "terrain_level": "Low",
+      "terrain_status": "ok",
+      "rain_mm_3d": 10.6,
+      "rain_status": "ok",
+      "main_driver": "unusual slope for this road (low, z=-1.0)",
+      "method": "terrain model ranking + live-rainfall heuristic (not calibrated)",
+      "r3d_mm": null,
+      "rain_24h_mm": null,
+      "forecast_24h_mm": null,
+      "forecast_72h_mm": null,
+      "peak_hour_utc": null,
+      "peak_mm": null,
+      "eta_ist": "2026-10-06T10:39:34+05:30",
+      "rain_72h_at_eta_mm": 0,
+      "forecast_rain_6h_around_eta_mm": 0,
+      "risk_level_at_eta": "Low",
+      "closure": null,
+      "adjusted_risk_level": null,
+      "ground_report_count_24h": null,
+      "adjustment_reason": null,
+      "name_en": null,
+      "risk_level_en": null,
+      "main_driver_en": null,
+      "risk_level_at_eta_en": null
+    },
+    {
+      "id": "seg_09",
+      "name": "Sirobagarh to Rudraprayag",
+      "sequence_order": 9,
+      "start_lat": 30.239,
+      "start_lng": 78.854,
+      "end_lat": 30.2844,
+      "end_lng": 78.9811,
+      "subpoints": [
+        [
+          30.239,
+          78.854
+        ],
+        [
+          30.252,
+          78.895
+        ],
+        [
+          30.268,
+          78.94
+        ],
+        [
+          30.2844,
+          78.9811
+        ]
+      ],
+      "subpoint_risk_scores": [
+        0.35,
+        0.4,
+        0.25,
+        0.5
+      ],
+      "risk_level": "Moderate",
+      "risk_score": 0.29,
+      "risk_index": 0.29,
+      "terrain_percentile": 0.41,
+      "terrain_level": "Low",
+      "terrain_status": "ok",
+      "rain_mm_3d": 10.7,
+      "rain_status": "ok",
+      "main_driver": "unusual elevation for this road (low, z=-0.5)",
+      "method": "terrain model ranking + live-rainfall heuristic (not calibrated)",
+      "r3d_mm": null,
+      "rain_24h_mm": null,
+      "forecast_24h_mm": null,
+      "forecast_72h_mm": null,
+      "peak_hour_utc": null,
+      "peak_mm": null,
+      "eta_ist": "2026-10-06T10:58:24+05:30",
+      "rain_72h_at_eta_mm": 0,
+      "forecast_rain_6h_around_eta_mm": 0,
+      "risk_level_at_eta": "Low",
+      "closure": null,
+      "adjusted_risk_level": null,
+      "ground_report_count_24h": null,
+      "adjustment_reason": null,
+      "name_en": null,
+      "risk_level_en": null,
+      "main_driver_en": null,
+      "risk_level_at_eta_en": null
+    },
+    {
+      "id": "seg_10",
+      "name": "Rudraprayag to Gauchar",
+      "sequence_order": 10,
+      "start_lat": 30.2844,
+      "start_lng": 78.9811,
+      "end_lat": 30.2872,
+      "end_lng": 79.1557,
+      "subpoints": [
+        [
+          30.2844,
+          78.9811
+        ],
+        [
+          30.285,
+          79.04
+        ],
+        [
+          30.286,
+          79.1
+        ],
+        [
+          30.2872,
+          79.1557
+        ]
+      ],
+      "subpoint_risk_scores": [
+        0.33,
+        0.27,
+        0.24,
+        0.3
+      ],
+      "risk_level": "Low",
+      "risk_score": 0.04,
+      "risk_index": 0.04,
+      "terrain_percentile": 0,
+      "terrain_level": "Low",
+      "terrain_status": "ok",
+      "rain_mm_3d": 10.9,
+      "rain_status": "ok",
+      "main_driver": "unusual slope aspect (north-south) for this road (high, z=+0.6)",
+      "method": "terrain model ranking + live-rainfall heuristic (not calibrated)",
+      "r3d_mm": null,
+      "rain_24h_mm": null,
+      "forecast_24h_mm": null,
+      "forecast_72h_mm": null,
+      "peak_hour_utc": null,
+      "peak_mm": null,
+      "eta_ist": "2026-10-06T11:45:41+05:30",
+      "rain_72h_at_eta_mm": 0,
+      "forecast_rain_6h_around_eta_mm": 0,
+      "risk_level_at_eta": "Low",
+      "closure": null,
+      "adjusted_risk_level": null,
+      "ground_report_count_24h": null,
+      "adjustment_reason": null,
+      "name_en": null,
+      "risk_level_en": null,
+      "main_driver_en": null,
+      "risk_level_at_eta_en": null
+    },
+    {
+      "id": "seg_11",
+      "name": "Gauchar to Karnaprayag",
+      "sequence_order": 11,
+      "start_lat": 30.2872,
+      "start_lng": 79.1557,
+      "end_lat": 30.2587,
+      "end_lng": 79.2173,
+      "subpoints": [
+        [
+          30.2872,
+          79.1557
+        ],
+        [
+          30.278,
+          79.18
+        ],
+        [
+          30.2587,
+          79.2173
+        ]
+      ],
+      "subpoint_risk_scores": [
+        0.54,
+        0.39,
+        0.53
+      ],
+      "risk_level": "Moderate",
+      "risk_score": 0.3,
+      "risk_index": 0.3,
+      "terrain_percentile": 0.35,
+      "terrain_level": "Low",
+      "terrain_status": "ok",
+      "rain_mm_3d": 21.4,
+      "rain_status": "ok",
+      "main_driver": "unusual slope aspect (north-south) for this road (high, z=+0.4)",
+      "method": "terrain model ranking + live-rainfall heuristic (not calibrated)",
+      "r3d_mm": null,
+      "rain_24h_mm": null,
+      "forecast_24h_mm": null,
+      "forecast_72h_mm": null,
+      "peak_hour_utc": null,
+      "peak_mm": null,
+      "eta_ist": "2026-10-06T12:30:40+05:30",
+      "rain_72h_at_eta_mm": 0,
+      "forecast_rain_6h_around_eta_mm": 0,
+      "risk_level_at_eta": "Low",
+      "closure": null,
+      "adjusted_risk_level": null,
+      "ground_report_count_24h": null,
+      "adjustment_reason": null,
+      "name_en": null,
+      "risk_level_en": null,
+      "main_driver_en": null,
+      "risk_level_at_eta_en": null
+    },
+    {
+      "id": "seg_12",
+      "name": "Karnaprayag to Langasu",
+      "sequence_order": 12,
+      "start_lat": 30.2587,
+      "start_lng": 79.2173,
+      "end_lat": 30.298,
+      "end_lng": 79.255,
+      "subpoints": [
+        [
+          30.2587,
+          79.2173
+        ],
+        [
+          30.278,
+          79.238
+        ],
+        [
+          30.298,
+          79.255
+        ]
+      ],
+      "subpoint_risk_scores": [
+        0.29,
+        0.2,
+        0.4
+      ],
+      "risk_level": "Moderate",
+      "risk_score": 0.26,
+      "risk_index": 0.26,
+      "terrain_percentile": 0.29,
+      "terrain_level": "Low",
+      "terrain_status": "ok",
+      "rain_mm_3d": 21.4,
+      "rain_status": "ok",
+      "main_driver": "unusual slope aspect (north-south) for this road (high, z=+0.4)",
+      "method": "terrain model ranking + live-rainfall heuristic (not calibrated)",
+      "r3d_mm": null,
+      "rain_24h_mm": null,
+      "forecast_24h_mm": null,
+      "forecast_72h_mm": null,
+      "peak_hour_utc": null,
+      "peak_mm": null,
+      "eta_ist": "2026-10-06T12:49:47+05:30",
+      "rain_72h_at_eta_mm": 0,
+      "forecast_rain_6h_around_eta_mm": 0,
+      "risk_level_at_eta": "Low",
+      "closure": null,
+      "adjusted_risk_level": null,
+      "ground_report_count_24h": null,
+      "adjustment_reason": null,
+      "name_en": null,
+      "risk_level_en": null,
+      "main_driver_en": null,
+      "risk_level_at_eta_en": null
+    },
+    {
+      "id": "seg_13",
+      "name": "Langasu to Nandprayag",
+      "sequence_order": 13,
+      "start_lat": 30.298,
+      "start_lng": 79.255,
+      "end_lat": 30.3308,
+      "end_lng": 79.3242,
+      "subpoints": [
+        [
+          30.298,
+          79.255
+        ],
+        [
+          30.312,
+          79.285
+        ],
+        [
+          30.3308,
+          79.3242
+        ]
+      ],
+      "subpoint_risk_scores": [
+        0.25,
+        0.48,
+        0.16
+      ],
+      "risk_level": "Low",
+      "risk_score": 0.23,
+      "risk_index": 0.23,
+      "terrain_percentile": 0.12,
+      "terrain_level": "Low",
+      "terrain_status": "ok",
+      "rain_mm_3d": 40.5,
+      "rain_status": "ok",
+      "main_driver": "unusual slope aspect (north-south) for this road (high, z=+0.3)",
+      "method": "terrain model ranking + live-rainfall heuristic (not calibrated)",
+      "r3d_mm": null,
+      "rain_24h_mm": null,
+      "forecast_24h_mm": null,
+      "forecast_72h_mm": null,
+      "peak_hour_utc": null,
+      "peak_mm": null,
+      "eta_ist": "2026-10-06T13:01:56+05:30",
+      "rain_72h_at_eta_mm": 0,
+      "forecast_rain_6h_around_eta_mm": 0,
+      "risk_level_at_eta": "Low",
+      "closure": null,
+      "adjusted_risk_level": null,
+      "ground_report_count_24h": null,
+      "adjustment_reason": null,
+      "name_en": null,
+      "risk_level_en": null,
+      "main_driver_en": null,
+      "risk_level_at_eta_en": null
+    },
+    {
+      "id": "seg_14",
+      "name": "Nandprayag to Chamoli",
+      "sequence_order": 14,
+      "start_lat": 30.3308,
+      "start_lng": 79.3242,
+      "end_lat": 30.4074,
+      "end_lng": 79.3524,
+      "subpoints": [
+        [
+          30.3308,
+          79.3242
+        ],
+        [
+          30.36,
+          79.335
+        ],
+        [
+          30.385,
+          79.345
+        ],
+        [
+          30.4074,
+          79.3524
+        ]
+      ],
+      "subpoint_risk_scores": [
+        0.54,
+        0.32,
+        0.57,
+        0.56
+      ],
+      "risk_level": "Moderate",
+      "risk_score": 0.39,
+      "risk_index": 0.39,
+      "terrain_percentile": 0.59,
+      "terrain_level": "Moderate",
+      "terrain_status": "ok",
+      "rain_mm_3d": 10.5,
+      "rain_status": "ok",
+      "main_driver": "unusual slope for this road (high, z=+0.4)",
+      "method": "terrain model ranking + live-rainfall heuristic (not calibrated)",
+      "r3d_mm": null,
+      "rain_24h_mm": null,
+      "forecast_24h_mm": null,
+      "forecast_72h_mm": null,
+      "peak_hour_utc": null,
+      "peak_mm": null,
+      "eta_ist": "2026-10-06T13:28:14+05:30",
+      "rain_72h_at_eta_mm": 0,
+      "forecast_rain_6h_around_eta_mm": 0,
+      "risk_level_at_eta": "Moderate",
+      "closure": null,
+      "adjusted_risk_level": null,
+      "ground_report_count_24h": null,
+      "adjustment_reason": null,
+      "name_en": null,
+      "risk_level_en": null,
+      "main_driver_en": null,
+      "risk_level_at_eta_en": null
+    },
+    {
+      "id": "seg_15",
+      "name": "Chamoli to Birahi",
+      "sequence_order": 15,
+      "start_lat": 30.4074,
+      "start_lng": 79.3524,
+      "end_lat": 30.435,
+      "end_lng": 79.39,
+      "subpoints": [
+        [
+          30.4074,
+          79.3524
+        ],
+        [
+          30.42,
+          79.37
+        ],
+        [
+          30.435,
+          79.39
+        ]
+      ],
+      "subpoint_risk_scores": [
+        0.23,
+        0.45,
+        0.41
+      ],
+      "risk_level": "Low",
+      "risk_score": 0.18,
+      "risk_index": 0.18,
+      "terrain_percentile": 0.24,
+      "terrain_level": "Low",
+      "terrain_status": "ok",
+      "rain_mm_3d": 10.5,
+      "rain_status": "ok",
+      "main_driver": "unusual slope aspect (north-south) for this road (high, z=+0.6)",
+      "method": "terrain model ranking + live-rainfall heuristic (not calibrated)",
+      "r3d_mm": null,
+      "rain_24h_mm": null,
+      "forecast_24h_mm": null,
+      "forecast_72h_mm": null,
+      "peak_hour_utc": null,
+      "peak_mm": null,
+      "eta_ist": "2026-10-06T13:54:20+05:30",
+      "rain_72h_at_eta_mm": 0,
+      "forecast_rain_6h_around_eta_mm": 0,
+      "risk_level_at_eta": "Low",
+      "closure": null,
+      "adjusted_risk_level": null,
+      "ground_report_count_24h": null,
+      "adjustment_reason": null,
+      "name_en": null,
+      "risk_level_en": null,
+      "main_driver_en": null,
+      "risk_level_at_eta_en": null
+    },
+    {
+      "id": "seg_16",
+      "name": "Birahi to Pipalkoti",
+      "sequence_order": 16,
+      "start_lat": 30.435,
+      "start_lng": 79.39,
+      "end_lat": 30.4297,
+      "end_lng": 79.4304,
+      "subpoints": [
+        [
+          30.435,
+          79.39
+        ],
+        [
+          30.432,
+          79.41
+        ],
+        [
+          30.4297,
+          79.4304
+        ]
+      ],
+      "subpoint_risk_scores": [
+        0.39,
+        0.19,
+        0.41
+      ],
+      "risk_level": "Low",
+      "risk_score": 0.15,
+      "risk_index": 0.15,
+      "terrain_percentile": 0.18,
+      "terrain_level": "Low",
+      "terrain_status": "ok",
+      "rain_mm_3d": 11.5,
+      "rain_status": "ok",
+      "main_driver": "unusual elevation for this road (high, z=+0.7)",
+      "method": "terrain model ranking + live-rainfall heuristic (not calibrated)",
+      "r3d_mm": null,
+      "rain_24h_mm": null,
+      "forecast_24h_mm": null,
+      "forecast_72h_mm": null,
+      "peak_hour_utc": null,
+      "peak_mm": null,
+      "eta_ist": "2026-10-06T14:04:48+05:30",
+      "rain_72h_at_eta_mm": 0,
+      "forecast_rain_6h_around_eta_mm": 0,
+      "risk_level_at_eta": "Low",
+      "closure": null,
+      "adjusted_risk_level": null,
+      "ground_report_count_24h": null,
+      "adjustment_reason": null,
+      "name_en": null,
+      "risk_level_en": null,
+      "main_driver_en": null,
+      "risk_level_at_eta_en": null
+    },
+    {
+      "id": "seg_17",
+      "name": "Pipalkoti to Helang (Tangani)",
+      "sequence_order": 17,
+      "start_lat": 30.4297,
+      "start_lng": 79.4304,
+      "end_lat": 30.528,
+      "end_lng": 79.538,
+      "subpoints": [
+        [
+          30.4297,
+          79.4304
+        ],
+        [
+          30.46,
+          79.47
+        ],
+        [
+          30.495,
+          79.51
+        ],
+        [
+          30.528,
+          79.538
+        ]
+      ],
+      "subpoint_risk_scores": [
+        0.3,
+        0.41,
+        0.62,
+        0.42
+      ],
+      "risk_level": "Moderate",
+      "risk_score": 0.44,
+      "risk_index": 0.44,
+      "terrain_percentile": 0.71,
+      "terrain_level": "Moderate",
+      "terrain_status": "ok",
+      "rain_mm_3d": 4.1,
+      "rain_status": "ok",
+      "main_driver": "unusual elevation for this road (high, z=+1.3)",
+      "method": "terrain model ranking + live-rainfall heuristic (not calibrated)",
+      "r3d_mm": null,
+      "rain_24h_mm": null,
+      "forecast_24h_mm": null,
+      "forecast_72h_mm": null,
+      "peak_hour_utc": null,
+      "peak_mm": null,
+      "eta_ist": "2026-10-06T14:18:17+05:30",
+      "rain_72h_at_eta_mm": 0,
+      "forecast_rain_6h_around_eta_mm": 0,
+      "risk_level_at_eta": "Moderate",
+      "closure": null,
+      "adjusted_risk_level": null,
+      "ground_report_count_24h": null,
+      "adjustment_reason": null,
+      "name_en": null,
+      "risk_level_en": null,
+      "main_driver_en": null,
+      "risk_level_at_eta_en": null
+    },
+    {
+      "id": "seg_18",
+      "name": "Helang to Joshimath",
+      "sequence_order": 18,
+      "start_lat": 30.528,
+      "start_lng": 79.538,
+      "end_lat": 30.5564,
+      "end_lng": 79.5663,
+      "subpoints": [
+        [
+          30.528,
+          79.538
+        ],
+        [
+          30.54,
+          79.55
+        ],
+        [
+          30.5564,
+          79.5663
+        ]
+      ],
+      "subpoint_risk_scores": [
+        0.46,
+        0.39,
+        0.24
+      ],
+      "risk_level": "Moderate",
+      "risk_score": 0.29,
+      "risk_index": 0.29,
+      "terrain_percentile": 0.47,
+      "terrain_level": "Moderate",
+      "terrain_status": "ok",
+      "rain_mm_3d": 2.9,
+      "rain_status": "ok",
+      "main_driver": "unusual elevation for this road (high, z=+1.8)",
+      "method": "terrain model ranking + live-rainfall heuristic (not calibrated)",
+      "r3d_mm": null,
+      "rain_24h_mm": null,
+      "forecast_24h_mm": null,
+      "forecast_72h_mm": null,
+      "peak_hour_utc": null,
+      "peak_mm": null,
+      "eta_ist": "2026-10-06T15:15:39+05:30",
+      "rain_72h_at_eta_mm": 0,
+      "forecast_rain_6h_around_eta_mm": 0,
+      "risk_level_at_eta": "Moderate",
+      "closure": null,
+      "adjusted_risk_level": null,
+      "ground_report_count_24h": null,
+      "adjustment_reason": null,
+      "name_en": null,
+      "risk_level_en": null,
+      "main_driver_en": null,
+      "risk_level_at_eta_en": null
+    }
+  ],
+  "weather_source": "cached",
+  "weather_fetched_at": "2026-10-06T07:11:13Z",
+  "weather_age_minutes": 2.4,
+  "is_simulated": false,
+  "stale_warning": null,
+  "recommendation": {
+    "action": "CAUTION",
+    "action_code": "REC_CAUTION",
+    "reason": "Moderate landslide risk along route. Drive cautiously near steep cuts and water crossings.",
+    "params": {
+      "depart_time": "2026-10-06T07:13:35+05:30",
+      "speed_kmph": 30,
+      "current_max_risk": "Moderate",
+      "best_max_risk": "Moderate",
+      "best_depart_time": "2026-10-06T07:13:35+05:30",
+      "hours_delay": 0
+    },
+    "best_departure_options": [
+      {
+        "depart_time": "2026-10-06T07:13:35+05:30",
+        "max_risk_level": "Moderate",
+        "summary": "Depart at 07:13 IST (Oct 06) - Max Risk: Moderate, Route Score: 5.40",
+        "total_risk_score": 5.4
+      },
+      {
+        "depart_time": "2026-10-06T08:13:35+05:30",
+        "max_risk_level": "Moderate",
+        "summary": "Depart at 08:13 IST (Oct 06) - Max Risk: Moderate, Route Score: 5.40",
+        "total_risk_score": 5.4
+      },
+      {
+        "depart_time": "2026-10-06T09:13:35+05:30",
+        "max_risk_level": "Moderate",
+        "summary": "Depart at 09:13 IST (Oct 06) - Max Risk: Moderate, Route Score: 5.40",
+        "total_risk_score": 5.4
+      }
+    ],
+    "action_en": null,
+    "reason_en": null
+  },
+  "depart_time": "2026-10-06T07:13:35+05:30",
+  "speed_kmph": 30,
+  "closure": null,
+  "from_segment_name_en": null,
+  "to_segment_name_en": null,
+  "max_risk_level_en": null,
+  "advisory_en": null,
+  "lang": "en"
+}

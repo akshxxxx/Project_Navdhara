@@ -1,0 +1,100 @@
+# Root .gitignore for NH7 Raah (IBM x Jigyasa Hackathon)
+
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Python bytecode & environments
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+*.so
+venv/
+**/venv/
+.venv/
+**/.venv/
+env/
+ENV/
+.pytest_cache/
+.coverage
+htmlcov/
+.cache/
+
+# Expo & React Native builds
+.expo/
+**/.expo/
+dist/
+**/dist/
+build/
+**/build/
+web-build/
+expo-env.d.ts
+*.tsbuildinfo
+.metro-health-check*
+/App/ios/
+/App/android/
+.kotlin/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Databases & local caches
+data/*.db
+data/*.sqlite3
+*.db
+*.sqlite3
+*.bak
+data/*.bak
+dem_cache/
+**/dem_cache/
+model/nhess-24-3207-2024-supplement_2.zip
+*.zip
+
+# Preserve demo pre-warmed audio cache if present
+!Backend/data/tts_cache/*.mp3
+!Backend/data/tts_cache/.gitkeep
+
+# Logs & temp files
+logs/
+**/logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment files
+.env
+.env*.local
+!*.env.example
+
+# IDE & OS files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# -------------------------------------------------------------
+# Markdown Rule: Only include root and subfolder README.md files
+# -------------------------------------------------------------
+*.md
+**/*.md
+!/README.md
+!/readme.md
+!/App/README.md
+!/App/readme.md
+!/Backend/README.md
+!/Backend/readme.md
+!/Frontend/README.md
+!/Frontend/readme.md
+# Team records (see log.md L-003)
+!/features.md
+!/log.md
+# Generated reports the backend reads at runtime (/model-info) and its tests check for
+!/Backend/outputs/*.md
+!/Backend/docs/*.md
