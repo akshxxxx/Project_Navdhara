@@ -3,10 +3,10 @@ import {
   Search, Calendar, MapPin, Tag, Filter, X, ChevronDown,
   AlertTriangle, CheckCircle2, Clock, Car, Waves, Cone,
   Check, ArrowRight, ArrowUpDown, ShieldAlert, Sparkles,
-  ExternalLink, Loader2, Info
+  ExternalLink, Loader2, Info, Camera
 } from 'lucide-react';
 import { fetchHistory, fetchFieldReports } from '../api/client';
-import { LANDSLIDE_PHOTOS, landslidePhoto, photoForDescription } from '../data/landslidePhotos';
+import { LANDSLIDE_PHOTOS, landslidePhoto } from '../data/landslidePhotos';
 
 // Realistic historical events matching NH-7 corridor geography and reference design
 const BASE_HISTORICAL_EVENTS = [
@@ -211,7 +211,8 @@ export const PastEvents = () => {
               date: dateStr,
               status: r.status === 'verified' ? 'Resolved' : (r.status === 'pending' ? 'Under Review' : 'Closed'),
               description: r.description,
-              thumbnail: r.photo_url || photoForDescription(r.description, idx),
+              // Only the reporter's own photo; never a stand-in for a field report
+              thumbnail: r.photo_url || null,
               agency: r.reporter_name ? `Reported by ${r.reporter_name}` : 'Field Monitor',
               coords: [r.lat, r.lng],
               clearanceHours: 8,
@@ -778,11 +779,18 @@ export const PastEvents = () => {
                       <div className="flex items-start gap-4 min-w-0 flex-1">
                         {/* Event Photo Thumbnail */}
                         <div className="w-20 h-20 sm:w-24 sm:h-20 rounded-xl overflow-hidden bg-slate-100 shrink-0 border border-slate-200 shadow-inner">
-                          <img
-                            src={evt.thumbnail}
-                            alt={evt.title}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                          />
+                          {evt.thumbnail ? (
+                            <img
+                              src={evt.thumbnail}
+                              alt={evt.title}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
+                              <Camera className="w-5 h-5" aria-hidden="true" />
+                              <span className="text-[10px] font-semibold mt-1">No photo</span>
+                            </div>
+                          )}
                         </div>
 
                         {/* Middle Text Details */}
@@ -857,11 +865,13 @@ export const PastEvents = () => {
           <div className="bg-white rounded-2xl max-w-lg w-full border border-slate-200 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150">
             {/* Modal Header */}
             <div className="relative h-44 w-full bg-slate-900">
-              <img
-                src={activeModalEvent.thumbnail}
-                alt={activeModalEvent.title}
-                className="w-full h-full object-cover opacity-85"
-              />
+              {activeModalEvent.thumbnail ? (
+                <img
+                  src={activeModalEvent.thumbnail}
+                  alt={activeModalEvent.title}
+                  className="w-full h-full object-cover opacity-85"
+                />
+              ) : null}
               <button
                 onClick={() => setActiveModalEvent(null)}
                 className="absolute top-3 right-3 p-1.5 bg-black/60 hover:bg-black/80 rounded-full text-white transition-colors"

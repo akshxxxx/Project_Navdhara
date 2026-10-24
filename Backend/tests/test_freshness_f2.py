@@ -37,7 +37,8 @@ def test_tier1_live_weather():
     segments = RS.load_segments()
     mock_payload = [{"daily": {"precipitation_sum": [5.0, 3.0, 2.0]}} for _ in segments]
 
-    with patch("requests.Session.get") as mock_get:
+    # No fresh snapshot on disk, so the server must fetch (a fresh one is reused: see the restart test)
+    with patch("requests.Session.get") as mock_get, patch.object(RS, "load_snapshot", return_value=(None, None)):
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = mock_payload
@@ -227,3 +228,62 @@ def test_alert_safety_guard_blocks_simulated_dispatch_and_storage():
     dispatched = dispatch_alert(alert=sample_alert, recipient_contact="+919876543210", channel="SMS", is_simulated=False)
     assert dispatched["status"] == "Dispatched"
     assert dispatched["simulated"] is False
+
+
+
+# ---------------------------------------------------------------------------
+# Open-Meteo quota (log.md L-053, L-054)
+# ---------------------------------------------------------------------------
+
+def test_restart_reuses_fresh_snapshot_instead_of_refetching(tmp_path, monkeypatch):
+    """Empty memory cache (server restart) + snapshot younger than 30 min: no Open-Meteo call."""
+    segments = RS.load_segments()
+    snap = tmp_path / "snap.json"
+    ts = (datetime.now(timezone.utc) - timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    snap.write_text(json.dumps({"timestamp": ts, "data": {s["id"]: {"rain_mm": 4.0, "status": "ok"} for s in segments}}),
+                    encoding="utf-8")
+    monkeypatch.setattr(RS, "RAIN_SNAPSHOT_FILE", snap)
+    with patch("requests.Session.get") as mock_get:
+        rain, meta = RS.fetch_rainfall_with_metadata(segments)
+    assert mock_get.call_count == 0
+    assert meta["weather_source"] == "cached" and 9.0 <= meta["weather_age_minutes"] <= 11.0
+    assert rain[segments[0]["id"]]["rain_mm"] == 4.0
+
+
+def test_daily_limit_backs_off_hourly_and_explains_why(tmp_path, monkeypatch):
+    """HTTP 429 'Daily API request limit exceeded': serve the snapshot, wait an hour (not 5 min) before asking again."""
+    segments = RS.load_segments()
+    snap = tmp_path / "snap.json"
+    ts = (datetime.now(timezone.utc) - timedelta(hours=4)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    snap.write_text(json.dumps({"timestamp": ts, "data": {s["id"]: {"rain_mm": 1.0, "status": "ok"} for s in segments}}),
+                    encoding="utf-8")
+    monkeypatch.setattr(RS, "RAIN_SNAPSHOT_FILE", snap)
+
+    resp = MagicMock(status_code=429, text='{"error":true,"reason":"Daily API request limit exceeded. Please try again tomorrow."}')
+    resp.raise_for_status.side_effect = requests.HTTPError("429", response=resp)
+    with patch("requests.Session.get", return_value=resp) as mock_get:
+        rain, meta = RS.fetch_rainfall_with_metadata(segments)
+        assert meta["weather_source"] == "snapshot"
+        assert "daily limit" in meta["stale_warning"] and "every hour" in meta["stale_warning"]
+        assert RS._fail_cache["until"] > time.time() + 60
+
+        # 10 minutes later (past the old 5-minute retry): still no new request
+        with patch("app.risk_service.time.time", return_value=time.time() + 600):
+            RS.fetch_rainfall_with_metadata(segments)
+        assert mock_get.call_count == 1
+        # just over an hour later (or at 00:00 UTC if sooner): it asks again, e.g. on another network
+        with patch("app.risk_service.time.time", return_value=time.time() + RS.DAILY_LIMIT_RETRY_S + 61):
+            RS.fetch_rainfall_with_metadata(segments)
+    assert mock_get.call_count == 2
+
+
+def test_api_key_uses_customer_host(monkeypatch):
+    from app import config
+    segments = RS.load_segments()
+    monkeypatch.setattr(config, "OPEN_METEO_API_KEY", "k-123")
+    payload = [{"daily": {"precipitation_sum": [1.0, 1.0, 1.0]}} for _ in segments]
+    with patch("requests.Session.get") as mock_get, patch.object(RS, "load_snapshot", return_value=(None, None)):
+        mock_get.return_value = MagicMock(status_code=200, json=MagicMock(return_value=payload))
+        RS.fetch_rainfall_with_metadata(segments)
+    url = mock_get.call_args.args[0]
+    assert url.startswith("https://customer-api.open-meteo.com/") and mock_get.call_args.kwargs["params"]["apikey"] == "k-123"

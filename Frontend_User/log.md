@@ -206,3 +206,19 @@ Each entry records **When** (IST), **Who**, **What**, **Why**, **How**, and the 
   for `/report-photos/`.
 - **Checked:** in the browser, the three sample reports show their photos. `tsc -b` clean.
 - **Files:** `src/api/client.ts`, `log.md`
+
+### WEB-008 — Dev server always on port 5174; no stand-in report photos
+- **When:** 2026-10-24 10:27 IST
+- **Who:** Claude Code for Aakash ("it was opening in port 5176 … when someone uploads a report it automatically
+  adds mock photo do not do that")
+- **What:**
+  1. **Port:** `npm run dev` had opened on 5176. Port 5174 was taken by the preview server Claude Code left running
+     after its checks, and 5175 by another local process, so Vite quietly moved on to the next free port.
+     `vite.config.ts` now sets `strictPort` for the dev server (5174) and preview (4174). If the port is busy, Vite
+     stops with "Port 5174 is already in use" instead of moving. Claude Code's preview server is stopped.
+  2. **Report photos:** this site never added a photo to a report. A report without a photo shows none here. The
+     stand-in pictures were on the officials' site (`Frontend/`) and are removed there: root `log.md` L-052.
+- **Checked:**
+  - With 5174 free, `npm run dev` opens on http://localhost:5174.
+  - With a second copy already running, the new one stops with "Port 5174 is already in use".
+- **Files:** `vite.config.ts`, `log.md`

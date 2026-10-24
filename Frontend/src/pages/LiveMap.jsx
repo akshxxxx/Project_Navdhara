@@ -278,6 +278,7 @@ export const LiveMap = () => {
       setClosures(Array.isArray(closureData) ? closureData : (closureData?.closures || []));
       setRiskMeta({
         weatherSource: riskData.weather_source,
+        staleWarning: riskData.stale_warning,
         asOf: riskData.as_of,
         isSimulated: riskData.is_simulated,
         highCount: riskData.high_or_very_high_risk_count,
@@ -397,6 +398,14 @@ export const LiveMap = () => {
           >
             Retry
           </button>
+        </div>
+      )}
+
+      {/* Backend fell back to saved weather (e.g. Open-Meteo's daily limit): say why and how old */}
+      {!error && riskMeta?.staleWarning && demo.simulateRainMm == null && (
+        <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center gap-2 text-xs text-amber-900 font-sans z-50">
+          <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+          <span>{riskMeta.staleWarning}</span>
         </div>
       )}
 

@@ -1,5 +1,5 @@
 // Real landslide photos (supplied by the team, log.md L-049), served from public/landslides/.
-// Used where a report or past event has no photo of its own, in place of the old Unsplash stock images.
+// Used for past events, in place of the old Unsplash stock images. A field report shows only its own photo.
 const photo = (name) => `/landslides/${name}.jpg`;
 
 export const LANDSLIDE_PHOTOS = {
@@ -21,16 +21,5 @@ export const LANDSLIDE_PHOTOS = {
 
 const ROTATION = Object.values(LANDSLIDE_PHOTOS);
 
-/** A stable photo for the i-th item that has none of its own */
+/** A stable photo for the i-th past event that has none of its own. Never used for field reports (log.md L-052). */
 export const landslidePhoto = (i) => ROTATION[Math.abs(i) % ROTATION.length];
-
-/** Picks a photo that matches a report's words, else falls back to the rotation */
-export function photoForDescription(description, i) {
-  const d = (description || '').toLowerCase();
-  if (/water|flood|mud/.test(d)) return LANDSLIDE_PHOTOS.mudslide;
-  if (/crack|subsid|sink/.test(d)) return LANDSLIDE_PHOTOS.crackedRoad;
-  if (/rockfall|falling stone|boulder/.test(d)) return LANDSLIDE_PHOTOS.bouldersAcrossHighway;
-  if (/block/.test(d)) return LANDSLIDE_PHOTOS.roadBuried;
-  if (/damage|washed|collapse/.test(d)) return LANDSLIDE_PHOTOS.roadEdgeCollapsed;
-  return landslidePhoto(i);
-}

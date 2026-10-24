@@ -10,7 +10,6 @@ import { postFieldReport, fetchFieldReports, fetchRiskMap, postAdminValidateRepo
 import { adaptSegment } from '../api/adapters';
 import { InteractiveMap } from '../components/InteractiveMap';
 import { SEGMENTS, TOWNS } from '../data/segments';
-import { photoForDescription } from '../data/landslidePhotos';
 
 const REPORT_INCIDENT_TYPES = [
   { id: 'landslide', label: 'Landslide', icon: AlertTriangle, color: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-200' },
@@ -162,7 +161,7 @@ export const Report = () => {
 
   // Format backend reports for display matching the UI design
   const formattedReports = useMemo(() => {
-    return fieldReports.map((r, i) => {
+    return fieldReports.map((r) => {
       const isLandslide = r.description?.toLowerCase().includes('landslide');
       const isRockfall = r.description?.toLowerCase().includes('rockfall') || r.description?.toLowerCase().includes('stone');
       const isBlockage = r.description?.toLowerCase().includes('block') || r.description?.toLowerCase().includes('tree');
@@ -194,8 +193,8 @@ export const Report = () => {
           ? { label: 'Rejected', bg: 'bg-slate-200 text-slate-700' }
           : { label: 'Pending', bg: 'bg-amber-100 text-amber-800' };
 
-      // Image thumbnail
-      const thumbnail = r.photo_url || photoForDescription(r.description, i);
+      // Only the reporter's own photo; a report sent without one shows "No photo", never a stand-in
+      const thumbnail = r.photo_url || null;
 
       return {
         ...r,
@@ -591,11 +590,18 @@ export const Report = () => {
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="w-16 h-14 rounded-lg overflow-hidden bg-slate-200 shrink-0">
-                          <img
-                            src={report.thumbnail}
-                            alt="Incident"
-                            className="w-full h-full object-cover"
-                          />
+                          {report.thumbnail ? (
+                            <img
+                              src={report.thumbnail}
+                              alt="Photo sent with the report"
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
+                              <Camera className="w-4 h-4" aria-hidden="true" />
+                              <span className="text-[9px] font-semibold mt-0.5">No photo</span>
+                            </div>
+                          )}
                         </div>
 
                         <div className="flex-1 min-w-0">

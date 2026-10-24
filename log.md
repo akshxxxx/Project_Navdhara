@@ -777,3 +777,81 @@ Each entry records **When** (IST), **Who**, **What**, **Why**, **How**, and the 
   - The 429 comes from the free API's request limit, not from this fix.
   - `Backend/data/validated_reports.csv` is modified by another session's L-049 work (photo URLs), not by tests; left as is.
 - **Files:** `Backend/tests/conftest.py`, `Backend/.gitignore`, `Backend/data/rain_snapshot.json` (restored), `log.md`
+
+### L-052 — Admin site: no stand-in photo on reports sent without one
+- **When:** 2026-10-24 10:27 IST
+- **Who:** Claude Code for Aakash ("when someone uploads a report it automatically adds mock photo do not do that")
+- **What:**
+  - On the officials' site (`Frontend/`), **Reports → Recent Reports** and **Past Events** gave a report that had no
+    photo a stand-in landslide picture, chosen from the report's words (`photoForDescription`, L-049). A traveller's
+    report looked as if it came with a real photo.
+  - A report now shows only its own photo. Without one, the thumbnail is a grey box with a camera icon and
+    **"No photo"**; the Past Events detail window shows no picture.
+- **Not changed:**
+  - The three seed reports keep the sample photos the backend stores with them (L-049).
+  - The eight built-in past events and the `/history` records keep their illustration photos: they are not
+    traveller uploads.
+  - The backend never adds a photo. `POST /field-report` stores `photo_url` only when the client sends one.
+  - The traveller site (`Frontend_User/`) and the app already showed no picture for a report without one.
+- **How:**
+  - `Report.jsx` and `PastEvents.jsx` use `r.photo_url || null` and draw the "No photo" box when it is empty.
+  - `photoForDescription` is removed from `src/data/landslidePhotos.js`, because nothing uses it any more.
+- **Checked:**
+  - In the browser on port 5173: Reports shows "No photo" on the 3 reports without a photo, and the 3 seed reports
+    keep their photos. Past Events shows "No photo" on the same 3, with no console errors.
+  - ESLint on the three files: 15 errors before and after, all already there (L-049 noted them); none new.
+- **Files:** `Frontend/src/pages/Report.jsx`, `Frontend/src/pages/PastEvents.jsx`,
+  `Frontend/src/data/landslidePhotos.js`, `features.md`, `log.md`
+
+### L-053 — Live weather stopped: Open-Meteo's free daily limit was used up; stop wasting calls
+- **When:** 2026-10-24 10:05–10:35 IST
+- **Who:** Claude Code for Aakash. Aakash: "the current backend is running in snapshot i mean i am getting the data of 6 5 am so fix this so i get the current live data".
+- **What was wrong:**
+  - Open-Meteo answers every request from this laptop with **HTTP 429 "Daily API request limit exceeded. Please try again tomorrow."** The free plan allows 10,000 calls a day per internet connection.
+  - One weather refresh asks for all 18 stretches in one request, and Open-Meteo counts that as **18 calls**. The quota went on three things:
+    1. **Tests:** each full test run made 6 real requests, about **108 calls**. Several sessions ran the suite many times today.
+    2. **Restarts:** the weather cache lived only in memory, so every backend restart or auto-reload (each code edit by any session) fetched again, 18 calls each.
+    3. **Retries:** after a failure the backend retried every 5 minutes, even when the limit was daily.
+  - The traveller website, the app and the officials' dashboard do **not** call Open-Meteo; they only read the backend.
+- **What:**
+  1. `tests/conftest.py` blocks every real request to `open-meteo.com`. The tests already mock what they need: a counting run showed 0 real calls, with all tests unaffected.
+  2. `app/risk_service.py`:
+     - when the memory cache is empty (restart) and the saved snapshot is under 30 minutes old, the snapshot is reused as the cache instead of fetching;
+     - an HTTP 429 with "daily" in the reply stops new attempts until 00:00 UTC (05:30 IST), when the quota is renewed;
+     - in that case the map's `stale_warning` says: "Open-Meteo's free daily limit is used up: showing the last live weather, from <time IST>. Live weather returns automatically after the limit resets at 05:30 IST."
+  3. **Optional `OPEN_METEO_API_KEY`** (`config.py`, `.env.example`): with an Open-Meteo paid-plan key, requests go to `customer-api.open-meteo.com` and are not subject to the free daily limit.
+  4. The officials' map (`Frontend/src/pages/LiveMap.jsx`) shows the backend's `stale_warning` as an amber line above the map. Before, it only said "Weather: SNAPSHOT".
+- **How verified:**
+  - 3 new tests in `tests/test_freshness_f2.py`:
+    - a restart with a 10-minute-old snapshot makes no request;
+    - a daily-limit 429 serves the snapshot with the explanation and makes no second request 10 minutes later;
+    - an API key uses the customer host.
+  - The live-fetch test now starts without a fresh snapshot. Full suite: 203 passed, the same 8 known failures, **0 real Open-Meteo requests** (counted with a scratch pytest plugin).
+  - The running backend now reports `weather_source: snapshot` with the explanation and no longer retries every 5 minutes. The map shows the amber line.
+- **Limits:**
+  - **Live weather cannot come back today without a paid key:** Open-Meteo refuses this connection until its daily quota renews at 00:00 UTC (05:30 IST). The backend then switches back to live by itself, with no restart needed.
+  - Until then the map uses the real 06:05 IST data.
+  - The per-segment pipeline in `weather_service.py` (`PER_SEGMENT_WEATHER`, off) did not get the same restart and daily-limit handling.
+- **Files:** `Backend/app/risk_service.py`, `Backend/app/config.py`, `Backend/.env.example`, `Backend/tests/conftest.py`, `Backend/tests/test_freshness_f2.py`, `Frontend/src/pages/LiveMap.jsx`, `features.md`, `log.md`
+
+### L-054 — Live weather back: the limit was the university Wi-Fi's; the backend now retries hourly
+- **When:** 2026-10-24 10:35–10:45 IST
+- **Who:** Claude Code for Aakash. Aakash: "now check again i think now the api will work it stopped on the uni wifi now i have connected my own as i think it is limited to the wifi ip".
+- **Finding:** Aakash was right.
+  - Open-Meteo's free daily limit counts per IP address. The university Wi-Fi shares one address among many users, so its quota was used up (partly by this project's tests and restarts, L-053).
+  - On Aakash's own connection Open-Meteo answered normally (HTTP 200).
+- **Change:** after a daily-limit refusal, `app/risk_service.py` now waits **1 hour** before asking again (`DAILY_LIMIT_RETRY_S = 3600`), or until 00:00 UTC if that is sooner. L-053 waited until 05:30 IST, so after a network change live weather would only come back after a restart. The map's warning now says "Raah tries again every hour; the limit resets at 05:30 IST".
+- **How verified:**
+  - The daily-limit test in `tests/test_freshness_f2.py` now also checks that a request is made again just over an hour later. The weather tests pass (18).
+  - The edit reloaded the running backend. `/risk-map` returned `weather_source: live`, fetched at 10:40 IST, with no warning: 16 Moderate, 2 Low, 0 High, rain 0–2.4 mm. `data/rain_snapshot.json` was refreshed with the live data.
+  - The map shows "Weather: CACHED" (the 30-minute reuse of that live fetch) and no amber line.
+- **Note:** on the university Wi-Fi the limit can run out again, because other users share the address. Then the map shows the explanation and retries hourly.
+- **Files:** `Backend/app/risk_service.py`, `Backend/tests/test_freshness_f2.py`, `log.md`
+
+### L-055 — Sensor node points at this laptop's new hotspot address
+- **When:** 2026-10-24 10:45 IST
+- **Who:** Claude Code for Aakash ("change the ip for whereever necessary to current one wifi").
+- **What:** `Hardware/raah_node/secrets.h` (git-ignored) `SERVER_URL` changed from `http://10.68.89.10:8000/node/reading` to `http://10.68.89.155:8000/node/reading`, this laptop's address on the "realme 12 Pro+ 5G" hotspot, where the backend runs (`HOST=0.0.0.0`; `/health` answers on that address). Only that line was changed; the Wi-Fi password and node key were not read out.
+- **Also:** the app APK was rebuilt for the new address (App/log.md APP-026). The websites need no change: they use `localhost` or their dev proxy.
+- **Not done:** the ESP32 has not been re-flashed, so the node keeps posting to the old address until it is.
+- **Files:** `Hardware/raah_node/secrets.h`, `log.md`

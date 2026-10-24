@@ -39,7 +39,7 @@ from __future__ import annotations
 import json
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 import os
@@ -67,7 +67,12 @@ RAIN_WEIGHT = K_RAIN
 
 CACHE_TTL_S = 1800                   # re-query rainfall at most every 30 minutes
 FAILED_CACHE_TTL_S = 300             # cache a failed fetch for 5 minutes so requests do not keep blocking
+# After Open-Meteo's daily-limit refusal, try again once an hour (not every 5 minutes): the limit belongs to
+# the internet connection's IP, so moving to another network brings live weather back (log.md L-054)
+DAILY_LIMIT_RETRY_S = 3600
 OPEN_METEO = "https://api.open-meteo.com/v1/forecast"
+# With an API key (Open-Meteo paid plan, config.OPEN_METEO_API_KEY) requests go to the customer host
+OPEN_METEO_CUSTOMER = "https://customer-api.open-meteo.com/v1/forecast"
 
 RAIN_SNAPSHOT_FILE = SNAPSHOT_PATH
 
@@ -99,7 +104,27 @@ except Exception:
 
 _segments_cache = None
 _rain_cache = {"t": 0.0, "data": None, "fetched_at": None}
-_fail_cache = {"t": 0.0, "data": None, "meta": None}
+_fail_cache = {"t": 0.0, "data": None, "meta": None, "until": 0.0}
+IST = timezone(timedelta(hours=5, minutes=30))
+
+
+def _snapshot_age_s(snap_time: str | None) -> float | None:
+    """Seconds since the snapshot's timestamp, or None if it cannot be read."""
+    if not snap_time or snap_time == "unknown":
+        return None
+    try:
+        dt = datetime.fromisoformat(snap_time.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return max(0.0, (datetime.now(timezone.utc) - dt).total_seconds())
+    except ValueError:
+        return None
+
+
+def _next_utc_midnight(now: float) -> float:
+    """Epoch seconds of the next 00:00 UTC (05:30 IST), when Open-Meteo's free daily quota is renewed."""
+    d = datetime.fromtimestamp(now, timezone.utc).date() + timedelta(days=1)
+    return datetime(d.year, d.month, d.day, tzinfo=timezone.utc).timestamp()
 
 
 def level_for(score: float, rain_status: str = "unavailable", rain_mm: float | None = None) -> str:
@@ -233,8 +258,9 @@ def fetch_rainfall_with_metadata(segments, session=None, simulate_rain_mm=None) 
         }
         return _rain_cache["data"], meta
 
-    # 2. Check if a recent failure occurred within 5 minutes so requests do not keep blocking
-    if now - _fail_cache.get("t", 0.0) < FAILED_CACHE_TTL_S and _fail_cache.get("data") is not None:
+    # 2. A recent failure (5 minutes), or Open-Meteo's daily limit (until it resets): do not ask again yet
+    recent_failure = now - _fail_cache.get("t", 0.0) < FAILED_CACHE_TTL_S or now < _fail_cache.get("until", 0.0)
+    if recent_failure and _fail_cache.get("data") is not None:
         meta = _fail_cache.get("meta")
         if not meta:
             meta = {
@@ -246,14 +272,34 @@ def fetch_rainfall_with_metadata(segments, session=None, simulate_rain_mm=None) 
             }
         return _fail_cache["data"], meta
 
+    # 2b. Empty memory cache (the backend just started or auto-reloaded): reuse the saved snapshot while it
+    # is younger than the cache window. One fetch covers 18 locations and Open-Meteo counts it as 18 of
+    # its 10,000 free daily calls, so refetching on every restart used the quota up (log.md L-053).
+    if _rain_cache.get("data") is None and _fail_cache.get("data") is None:
+        snap, snap_time = load_snapshot(segments)
+        age_s = _snapshot_age_s(snap_time)
+        if snap is not None and age_s is not None and age_s < CACHE_TTL_S:
+            _rain_cache.update(t=now - age_s, data=snap, fetched_at=snap_time)
+            return snap, {
+                "weather_source": "cached",
+                "weather_fetched_at": snap_time,
+                "weather_age_minutes": round(age_s / 60.0, 1),
+                "is_simulated": False,
+                "stale_warning": None,
+            }
+
     # 3. Attempt live fetch with 4 second timeout
     session = session or requests.Session()
     mids = [((s["start_lat"] + s["end_lat"]) / 2, (s["start_lng"] + s["end_lng"]) / 2) for s in segments]
     params = {"latitude": ",".join(f"{m[0]:.4f}" for m in mids), "longitude": ",".join(f"{m[1]:.4f}" for m in mids),
               "daily": "precipitation_sum", "past_days": 1, "forecast_days": 2, "timezone": "Asia/Kolkata"}
+    url = OPEN_METEO
+    if config.OPEN_METEO_API_KEY:
+        url = OPEN_METEO_CUSTOMER
+        params["apikey"] = config.OPEN_METEO_API_KEY
 
     try:
-        r = session.get(OPEN_METEO, params=params, timeout=4)
+        r = session.get(url, params=params, timeout=4)
         r.raise_for_status()
         payload = r.json()
         items = payload if isinstance(payload, list) else [payload]
@@ -270,7 +316,7 @@ def fetch_rainfall_with_metadata(segments, session=None, simulate_rain_mm=None) 
 
         now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         _rain_cache.update(t=now, data=result, fetched_at=now_iso)
-        _fail_cache.update(t=0.0, data=None, meta=None)
+        _fail_cache.update(t=0.0, data=None, meta=None, until=0.0)
         log.info("risk_service: rainfall refreshed for %d segments", len(segments))
 
         meta = {
@@ -291,14 +337,28 @@ def fetch_rainfall_with_metadata(segments, session=None, simulate_rain_mm=None) 
         return result, meta
 
     except Exception as e:
-        log.warning("risk_service: rainfall fetch failed (%s: %s); caching failure for 5m", type(e).__name__, e)
+        resp = getattr(e, "response", None)
+        daily_limit = (resp is not None and resp.status_code == 429
+                       and "daily" in (getattr(resp, "text", "") or "").lower())
         _fail_cache["t"] = now
+        # Daily limit: ask again in an hour (or when the quota renews at 00:00 UTC, if that is sooner)
+        _fail_cache["until"] = min(now + DAILY_LIMIT_RETRY_S, _next_utc_midnight(now) + 60) if daily_limit else 0.0
+        log.warning("risk_service: rainfall fetch failed (%s: %s); %s", type(e).__name__, e,
+                    "Open-Meteo daily limit reached, next try in 1 hour" if daily_limit else "caching failure for 5m")
 
         # If live call fails and snapshot exists, use it and set rain_status to "cached" with snapshot time
         snap, snap_time = load_snapshot(segments)
         if snap is not None:
             log.info("risk_service: using cached rain snapshot from %s", RAIN_SNAPSHOT_FILE)
             meta = _calc_snapshot_meta(snap_time)
+            if daily_limit:
+                age_s = _snapshot_age_s(snap_time)
+                when = (datetime.fromtimestamp(now - age_s, IST).strftime("%d %b, %I:%M %p IST")
+                        if age_s is not None else snap_time)
+                meta["stale_warning"] = (
+                    f"Open-Meteo's free daily limit is used up on this internet connection: showing the last live "
+                    f"weather, from {when}. Raah tries again every hour; the limit resets at 05:30 IST."
+                )
             _fail_cache["data"] = snap
             _fail_cache["meta"] = meta
             return snap, meta

@@ -194,6 +194,9 @@ Details, reasons and verification are in [log.md](log.md) under the given IDs.
 | 2026-10-23 | Tests/setup | Python 3.12+, `pandas` added, test DB auto-created, a weather test with a fixed date repaired, 21 new client-contract tests. Result: 149 tests pass; the 8 failures are the missing generated reports. | L-014, L-015 |
 | 2026-10-24 | Field reports | **New** `POST /field-report/photo` and `/report-photos/*`: travellers can attach a photo (camera or gallery) to a report from the app. Photos are git-ignored user data. 4 new tests. | L-048 |
 | 2026-10-24 | Field reports | Real landslide photos (`Backend/app/static/landslides/`) replace Unsplash stock images on the seed reports; old databases are fixed at start-up. `/field-reports` returns full photo URLs. Admin Past Events, Reports and Alerts use the same photos. | L-049 |
+| 2026-10-24 | Web dashboard | A field report sent **without a photo shows "No photo"** on admin Reports and Past Events instead of a stand-in landslide picture chosen from its words. Seed reports and built-in past events keep their own photos. | L-052 |
+| 2026-10-24 | Weather | **Live weather stopped (Open-Meteo daily limit, HTTP 429).** Tests no longer call the real Open-Meteo (~108 quota calls per run), a restart reuses a snapshot younger than 30 min instead of refetching, the daily limit backs off until 05:30 IST instead of retrying every 5 min, the map shows why it is on saved weather, optional `OPEN_METEO_API_KEY` (paid plan). 3 new tests. | L-053 |
+| 2026-10-24 | Weather | Live weather back on another network (the university Wi-Fi's shared IP had used up Open-Meteo's daily quota); after a daily-limit refusal the backend now retries **hourly** instead of waiting until 05:30 IST. | L-054 |
 
 ---
 

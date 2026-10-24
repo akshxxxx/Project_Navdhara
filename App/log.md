@@ -506,3 +506,20 @@ Each entry records **When** (IST), **Who**, **What**, **Why**, **How**, and the 
 - **Checked:** on the web build, Recent reports loads all three photos. With the phone's address the backend
   returns `http://172.168.11.111:8000/static/landslides/…` URLs. Not looked at on the phone itself.
 - **Files:** none in App
+
+### APP-026 — New Wi-Fi: app rebuilt for the backend at 10.68.89.155
+- **When:** 2026-10-24 10:45 IST
+- **Who:** Claude Code for Aakash ("change the ip … to current one wifi … my app stopped working i changed my wifi")
+- **What:** The laptop moved to the "realme 12 Pro+ 5G" hotspot and is now `10.68.89.155`, so the installed app
+  was still calling the old `172.168.11.111:8000` and failed. The APK was rebuilt with
+  `EXPO_PUBLIC_API_URL=http://10.68.89.155:8000` and installed on the Xiaomi (on the same hotspot at
+  `10.68.89.90`; from the phone, `curl` to `10.68.89.155:8000/health` returns 200). After install the app
+  opens with **Live** data from the backend. The first build reused the old JavaScript bundle (Gradle does not
+  see a changed `EXPO_PUBLIC_API_URL`), so `android/app/build/generated/assets/react/release` was deleted and
+  the APK rebuilt; the new address was confirmed inside the APK before installing.
+- **Also:** the sensor node's `Hardware/raah_node/secrets.h` (git-ignored) now posts to `10.68.89.155:8000`
+  instead of `10.68.89.10` (root `log.md` L-039); it needs re-flashing to take effect.
+- **Next time the network changes:** the hotspot can hand out a new address. Either rebuild with the new
+  `EXPO_PUBLIC_API_URL`, or in the app open the server sheet (shown with the connection error) and type the new
+  address; a typed address is saved on the phone and wins over the built-in one.
+- **Files:** none in App (build output only); `Hardware/raah_node/secrets.h`

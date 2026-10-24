@@ -14,7 +14,9 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     resolve: { alias: { '@': '/src' } },
-    server: { port: 5174, host: true, proxy },
-    preview: { port: 4174, host: true, proxy },
+    // strictPort: always 5174 (4174 for preview). If the port is busy, Vite stops with an error instead of
+    // quietly moving to 5175, 5176… (Frontend/ uses 5173).
+    server: { port: 5174, strictPort: true, host: true, proxy },
+    preview: { port: 4174, strictPort: true, host: true, proxy },
   };
 });

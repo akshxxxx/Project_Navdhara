@@ -17,6 +17,21 @@ if not _TEST_SNAPSHOT.exists() and (_DATA / "rain_snapshot.json").exists():
     _TEST_SNAPSHOT.write_bytes((_DATA / "rain_snapshot.json").read_bytes())
 os.environ["SNAPSHOT_PATH"] = str(_TEST_SNAPSHOT)
 
+# Tests must never reach the real Open-Meteo: each full run made ~108 quota calls and, with many runs a
+# day, used up the free daily limit that the running server needs (log.md L-053). Tests mock what they need.
+import requests
+
+_real_send = requests.adapters.HTTPAdapter.send
+
+
+def _no_open_meteo(self, request, **kwargs):
+    if "open-meteo.com" in request.url:
+        raise requests.ConnectionError("tests must not call the real Open-Meteo (tests/conftest.py)")
+    return _real_send(self, request, **kwargs)
+
+
+requests.adapters.HTTPAdapter.send = _no_open_meteo
+
 from app import config
 config.ENABLE_SCHEDULER = False
 os.environ["ENABLE_SCHEDULER"] = "false"

@@ -61,6 +61,10 @@ DEFAULT_SPEED_KMPH = float(os.getenv("DEFAULT_SPEED_KMPH", "30.0"))
 # Task 10: Demo Mode (pins weather to local snapshot so demo is 100% reproducible and never depends on live internet)
 DEMO_MODE = os.getenv("DEMO_MODE", "false").lower() in ("true", "1", "yes")
 
+# Open-Meteo: free without a key (10,000 calls a day per internet connection; one 18-stretch refresh
+# counts as 18). With a paid-plan key, requests go to customer-api.open-meteo.com instead.
+OPEN_METEO_API_KEY = os.getenv("OPEN_METEO_API_KEY", "").strip()
+
 # Logging configuration
 LOG_FILE = LOGS_DIR / "backend.log"
 LOG_MAX_BYTES = 5 * 1024 * 1024  # 5 MB
