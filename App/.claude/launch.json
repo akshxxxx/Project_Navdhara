@@ -6,6 +6,18 @@
       "runtimeExecutable": "npx",
       "runtimeArgs": ["expo", "start", "--web", "--port", "8081"],
       "port": 8081
+    },
+    {
+      "name": "raah-admin-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "D:/Raah/Frontend", "run", "dev", "--", "--port", "5173", "--strictPort"],
+      "port": 5173
+    },
+    {
+      "name": "raah-user-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "D:/Raah/Frontend_User", "run", "dev", "--", "--port", "5174", "--strictPort"],
+      "port": 5174
     }
   ]
 }

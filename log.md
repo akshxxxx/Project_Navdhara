@@ -684,3 +684,96 @@ Each entry records **When** (IST), **Who**, **What**, **Why**, **How**, and the 
 - **Checked:** 4 new tests in `tests/test_report_photos.py` (upload and fetch back, non-image → 415, over 3 MB → 413, a report accepts the returned URL) all pass. Full suite: 195 passed, 8 failed (the known missing generated reports).
 - **Not done:** the web dashboard's Reports page does not show the photo yet; no clean-up of old photos.
 - **Files:** `Backend/app/routes/reports.py`, `Backend/app/main.py`, `Backend/tests/test_report_photos.py` (new), `.gitignore`, `features.md`, `log.md`
+
+### L-049 — Real landslide photos replace the Unsplash stock images (reports and past events)
+- **When:** 2026-10-24 09:30–09:47 IST
+- **Who:** Claude Code for Aakash ("change the mock pics … to these real landslide pics in the app, website both user and admin recent reports and past alerts section"). The 15 photos were supplied by Aakash; one was a duplicate, so 14 are used.
+- **What:**
+  - **Backend:** the 14 photos are in `Backend/app/static/landslides/` (served at `/static/landslides/<name>.jpg`). The three seed reports now use them instead of Unsplash links: Sirobagarh rockfall → `night-rockfall-traffic-stopped.jpg`, Tangani cracks → `cracked-subsiding-road.jpg`, Devprayag one lane open → `rockfall-fence-with-cones.jpg`. Same in `data/validated_reports.csv`.
+  - **Existing databases are fixed at start-up:** `seed_database` swaps a seed report's photo when it still points at `images.unsplash.com` (matched by its description). The running demo database was updated by the auto-reload.
+  - **`GET /field-reports`** turns a stored server path (`/static/…`) into a full URL on the address the client used, as `/field-report/photo` already does. The app and both sites therefore show the photos with no client change (the user site needed one proxy fix, WEB-007).
+  - **Admin site (`Frontend/`):** a copy of the photos is in `public/landslides/`, listed in `src/data/landslidePhotos.js`.
+    - **Past Events:** each of the eight built-in events has a matching photo; history records take the next photos in turn.
+    - **Reports and Past Events:** a report without a photo gets one chosen from its words (water/mud, cracks, rockfall, blocked, damage), otherwise the next in turn.
+    - **Alerts:** the critical-alert card uses `road-buried-under-rockslide.jpg`.
+- **Not changed:** the large mountain-scenery banners at the top of the admin pages (Alerts, Report, Past Events, Plan trip, Emergency) are still Unsplash; they are not report or event photos. The admin site still shows a stand-in photo for reports that have none, as it did before; officials may read it as the reporter's photo.
+- **Note on the photos:** several are not from NH-7 or India (US highways, the Canary Islands, Yellowstone), two carry a stock-site watermark, and one is a four-panel figure from a paper. Check the rights before any public release.
+- **Checked:**
+  - Backend: new test `test_seed_reports_use_the_bundled_landslide_photos`. Full suite: 200 passed, 8 failed (the known missing generated reports). The golden sample was updated to the new URLs.
+  - In the browser, every photo loaded: admin Past Events, Reports and the Alerts card; user site Recent reports; app (web build) Recent reports.
+  - With the phone's address (`Host: 172.168.11.111:8000`), the URLs use that address. The app's code is unchanged, so the installed APK shows them as is.
+  - Admin lint: the same pre-existing errors as before the change, none new.
+- **Files:** `Backend/app/static/landslides/*.jpg` (14, new), `Backend/app/seed_data.py`, `Backend/app/database.py`, `Backend/app/routes/reports.py`, `Backend/data/validated_reports.csv`, `Backend/tests/test_report_photos.py`, `Backend/tests/golden/field_reports_list_golden.json`, `Frontend/public/landslides/*.jpg` (14, new), `Frontend/src/data/landslidePhotos.js` (new), `Frontend/src/pages/PastEvents.jsx`, `Frontend/src/pages/Report.jsx`, `Frontend/src/pages/Alerts.jsx`, `features.md`, `log.md`
+
+### L-050 — Sensor log for admins; calibration: only tilt raises ALARM
+- **When:** 2026-10-24 09:25–09:55 IST
+- **Who:** Claude Code for Aakash. Aakash: "create a log file which the admin can access which stores the data from nodes … calibrate the sensor like the vibration only shows warning no alarm and soil moisture also only shows warning not alarm only tilt sensor shows alarm … also tell me a reference if a judge asks how you decided these values".
+- **Why:**
+  - The control room needs a plain, downloadable record of every sensor reading, for incident reviews and to calibrate thresholds from real data.
+  - On a highway, vibration (trucks, works) and wet soil (every monsoon day) are not proof of a slide. ALARMs from them would send false AVOID messages, so the top level is kept for direct evidence of ground movement: tilt.
+- **What:**
+  1. **Daily sensor log** (`Backend/app/node_log.py`, new):
+     - every reading from a real, mock or replay node is appended to `Backend/logs/node_readings/YYYY-MM-DD.csv`, one file per IST day; SIM- nodes are skipped;
+     - 23 columns: time, node, kind, segment, state, who decided it, `state_capped_from`, late flag, tilt, rate, vibration peak/RMS, strikes, moisture, raw ADC, rain, link, RSSI, seq, firmware;
+     - settings `NODE_LOG_DIR` and `NODE_LOG_ENABLED`; a failed write never blocks ingest;
+     - the folder is git-ignored. Tests write to `Backend/data/test_node_logs/`, which is now in `Backend/.gitignore`.
+  2. **Admin endpoints** (admin key):
+     - `GET /admin/node-logs`: days with row counts, sizes and nodes;
+     - `GET /admin/node-logs/{date}`: newest-first JSON rows, filterable by `node_id`, with a limit;
+     - `GET /admin/node-logs/{date}?format=csv`: the file as a download. The date must match YYYY-MM-DD, so requests cannot leave the log folder.
+  3. **Admin page → Sensor log tab** (`Frontend/src/pages/Officials.jsx`, `src/api/client.js`):
+     - a table of days with View and CSV-download buttons;
+     - the newest 200 readings of a day, with a node filter, state colours and a "capped from ALARM" note.
+  4. **Calibration (only tilt raises ALARM):**
+     - **Tilt:** WATCH 2°, WARNING 5° or 3°/min, ALARM 8° or 8°/min. These are unchanged.
+     - **Vibration:** WARNING at 0.10 g RMS or a 0.35 g knock, never ALARM. The "two-stage impact → ALARM" rule was removed.
+     - **Soil moisture:** WATCH 50 % (new), WARNING at ≥ 70 % saturation (was WATCH), never ALARM. Saturation still multiplies the tilt thresholds by 0.6.
+     - **Rain plate:** WATCH.
+     - The rules apply in `app/node_sensors.py` (new `tilt_alarm()`), firmware `raah_node.ino` 2.2.0, `tools/mock_node.py`, the Sensors page and How it works.
+     - **The backend also lowers any node-sent ALARM without a tilt or tilt-rate reason to WARNING**, recording `state_capped_from: "ALARM"` in the reading result, node health, log and Sensors page. This means older firmware or a test sketch cannot raise ALARM from vibration or soil.
+  5. **Judge reference:** `Backend/docs/SENSOR_THRESHOLDS.md` (new) covers:
+     - the rule table and why only tilt alarms (rate-based failure forecasting, false-alarm cost of highway vibration, effective-stress reasoning for wet soil, tiered alerts in the Amrita Kerala WSN);
+     - where each number comes from (48-hour workflow §4.2 bench values, MPU6050 noise, bench ADC calibration);
+     - what to change before field use (degrees per hour, baseline from the sensor log);
+     - 11 references. Uchimura et al. 2010 / 2015, Ramesh 2014 and the MPU6050 noise figure were checked online.
+- **How verified:**
+  - **Tests:** 4 new tests in `tests/test_node_hardware.py`:
+    - vibration alone gives WARNING;
+    - soil gives WATCH at 52 %, WARNING at 100 %, and ALARM only with a 5° tilt on saturated soil;
+    - a node ALARM without a tilt reason is capped to WARNING, and its stretch is High, not AVOID;
+    - the daily log and admin endpoints work (401 without the key, SIM- not logged, CSV download, 404 for a missing day).
+  - The `tests/test_node_backend.py` helper now sends an ALARM-level tilt with ALARM states. Full suite: 199 passed, the same 8 known failures (missing generated reports).
+  - **Mock node dry runs:** `impact` now ends at WARNING; `alarm`, `wet` and `demo` still reach ALARM, through tilt.
+  - **Live backend:** a vibration-only ALARM from `MOCK-HWTEST` (seg_08) came back WARNING with `state_capped_from: ALARM`, and both test rows appeared in `logs/node_readings/2026-10-24.csv`. The CSV download returned `text/csv` with an attachment name. The Admin → Sensor log tab showed the day and rows in the browser. `MOCK-HWTEST` was released afterwards (`/node/ack`).
+  - `vite build` passes. ESLint shows only the four problems the two files already had.
+- **Not done:**
+  - The firmware change was not compiled or flashed.
+  - There is no automatic clean-up of old log files.
+  - The numbers remain bench values until a field baseline exists.
+- **Files:**
+  - Backend: `app/node_log.py` (new), `app/node_sensors.py`, `app/node_service.py`, `app/routes/node.py`, `app/config.py`, `tests/conftest.py`, `tests/test_node_backend.py`, `tests/test_node_hardware.py`, `tools/mock_node.py`, `.gitignore`, `docs/SENSOR_THRESHOLDS.md` (new), `docs/NODE_API.md`
+  - `Hardware/raah_node/raah_node.ino`
+  - Frontend: `src/pages/Officials.jsx`, `src/pages/Sensors.jsx`, `src/pages/About.jsx`, `src/api/client.js`
+  - `features.md`, `log.md`
+
+### L-051 — Fixed: whole map turned High because test runs overwrote the rain snapshot
+- **When:** 2026-10-24 09:50–10:00 IST
+- **Who:** Claude Code for Aakash. Aakash: "my full map suddenly turned red and orange from your last work check if the output is correct … the model is working fine or not".
+- **What was wrong:**
+  - `/risk-map` showed 9 of 18 stretches High, every stretch with exactly 36.0 mm of 3-day rain, `weather_source: snapshot`, and no sensor or report adjustments.
+  - **The risk model was fine; its rain input was test data:**
+    - `test_risk_resilience.py` and the per-segment weather tests mock Open-Meteo (36 mm everywhere) and save the result as the rain snapshot;
+    - the tests used the real `Backend/data/rain_snapshot.json`; only the database was isolated (L-021);
+    - this morning's full test runs (L-050, and other sessions') overwrote it at 09:47 IST.
+  - At the same time, Open-Meteo was answering this laptop with **HTTP 429 (too many requests)**. The running backend therefore fell back to the snapshot and served the fake rain.
+- **Fix:**
+  1. Restored `Backend/data/rain_snapshot.json` from git: the real 06:05 IST live fetch, 0–2.4 mm.
+  2. `tests/conftest.py` now points `SNAPSHOT_PATH` at `Backend/data/test_rain_snapshot.json`, seeded from the real snapshot and git-ignored. No test can write the live snapshot again.
+- **How verified:**
+  - Full suite: 200 passed, the same 8 known failures. `rain_snapshot.json` stays unchanged after the run.
+  - Live `/risk-map`: 16 Moderate, 2 Low, 0 High; rain 0–2.4 mm. The map in the browser is yellow and green again, with "High/Severe: 0".
+- **Note:**
+  - While Open-Meteo keeps returning 429, the map runs on this morning's snapshot ("Weather: SNAPSHOT"). It switches back to live by itself when Open-Meteo accepts requests again.
+  - The 429 comes from the free API's request limit, not from this fix.
+  - `Backend/data/validated_reports.csv` is modified by another session's L-049 work (photo URLs), not by tests; left as is.
+- **Files:** `Backend/tests/conftest.py`, `Backend/.gitignore`, `Backend/data/rain_snapshot.json` (restored), `log.md`

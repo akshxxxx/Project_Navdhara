@@ -105,6 +105,13 @@ def _photo_extension(head: bytes) -> Optional[str]:
     return None
 
 
+def _absolute_photo_url(request: Request, url: Optional[str]) -> Optional[str]:
+    """Seed reports store a server path (/static/landslides/…, L-049); clients get a full URL on this server."""
+    if url and url.startswith("/"):
+        return f"{str(request.base_url).rstrip('/')}{url}"
+    return url
+
+
 @router.post("/field-report/photo", status_code=status.HTTP_201_CREATED)
 @limiter.limit("10/minute")
 async def upload_report_photo(request: Request, photo: UploadFile = File(...)):
@@ -292,7 +299,7 @@ def list_field_reports(request: Request):
             "lat": r["lat"],
             "lng": r["lng"],
             "description": r["description"],
-            "photo_url": r["photo_url"],
+            "photo_url": _absolute_photo_url(request, r["photo_url"]),
             "reporter_name": r["reporter_name"],
             "status": CLIENT_STATUS.get(r["status"], (r["status"] or "pending").lower()),
             "status_label": r["status"],

@@ -80,11 +80,15 @@ export const api = {
 };
 
 /**
- * The backend returns photo URLs on its own address (http://host:8000/report-photos/…). The page shows them
- * through its own origin, so they also load when the backend is only reachable through the proxy.
+ * The backend returns photo URLs on its own address (http://host:8000/report-photos/…, or
+ * /static/landslides/… for the sample reports). The page shows them through its own origin, so they also
+ * load when the backend is only reachable through the proxy.
  */
 export function photoSrc(url: string): string {
+  if (API_URL !== '/api') return url;
   const m = /\/report-photos\/[^/?#]+$/.exec(url);
-  if (m && API_URL === '/api') return m[0];
+  if (m) return m[0];
+  const sample = /\/static\/landslides\/[^/?#]+$/.exec(url);
+  if (sample) return `/api${sample[0]}`;
   return url;
 }

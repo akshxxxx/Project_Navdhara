@@ -73,7 +73,9 @@ def node_env(monkeypatch):
 
 
 def post(state, node="NODE1", seg="seg_05", **extra):
-    body = {"node_id": node, "segment_id": seg, "state": state, "tilt_deg": 1.0, **extra}
+    # Only the tilt sensor may raise ALARM (node_sensors.tilt_alarm), so ALARM readings carry an ALARM tilt
+    body = {"node_id": node, "segment_id": seg, "state": state,
+            "tilt_deg": 9.0 if str(state).upper() == "ALARM" else 1.0, **extra}
     return client.post("/node/reading", json=body, headers=H)
 
 

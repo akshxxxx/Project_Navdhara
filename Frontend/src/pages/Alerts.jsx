@@ -10,6 +10,7 @@ import { fetchRiskMap, fetchClosures, postSubscribe } from '../api/client';
 import { adaptSegment, getLevelMeta } from '../api/adapters';
 import { InteractiveMap } from '../components/InteractiveMap';
 import { SEGMENTS } from '../data/segments';
+import { LANDSLIDE_PHOTOS } from '../data/landslidePhotos';
 
 export const Alerts = () => {
   const ctx = useOutletContext() || {};
@@ -472,7 +473,7 @@ export const Alerts = () => {
               <div
                 className="absolute right-0 top-0 bottom-0 w-2/5 opacity-40 bg-cover bg-center pointer-events-none"
                 style={{
-                  backgroundImage: "url('https://images.unsplash.com/photo-1542332213-9b5a5a3fad35?auto=format&fit=crop&w=800&q=80')"
+                  backgroundImage: `url(${LANDSLIDE_PHOTOS.roadBuried})`
                 }}
               />
               <div className="absolute inset-0 bg-gradient-to-r from-[#5a1a1a] via-[#5a1a1a]/95 to-transparent pointer-events-none" />

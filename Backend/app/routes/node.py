@@ -13,14 +13,17 @@ POST /node/ack/{node_id}    crew checked the site: release a SENSOR_LOST hold   
 GET  /node/placement        proposed node sites from the terrain model
 GET  /node/serial           USB link to a plugged-in node (app/serial_ingest.py)
 POST /node/serial/pause     free the USB port for flashing; /node/serial/resume takes it back   (admin key)
+GET  /admin/node-logs                 daily sensor log files: date, rows, nodes          (admin key)
+GET  /admin/node-logs/{date}          one day's readings as JSON (?node_id=&limit=) or the CSV file (?format=csv)
 See Backend/docs/NODE_API.md.
 """
 import secrets
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
+from fastapi.responses import FileResponse
 
-from app import config, node_service
+from app import config, node_log, node_service
 from app.logger import logger
 from app.models import NodeMarkRequest, NodeReading
 from app.routes.reports import verify_admin_key
@@ -142,6 +145,32 @@ def post_node_serial_resume(_admin: str = Depends(verify_admin_key)):
     from app import serial_ingest
     logger.info("Node USB link resumed")
     return serial_ingest.resume()
+
+
+@router.get("/admin/node-logs")
+def get_node_log_days(_admin: str = Depends(verify_admin_key)):
+    """Daily sensor log files (one CSV per IST day), newest first."""
+    return {"dir": str(node_log.log_dir()), "columns": list(node_log.COLUMNS), "days": node_log.list_days()}
+
+
+@router.get("/admin/node-logs/{date}")
+def get_node_log_day(
+    date: str,
+    format: str = Query("json", pattern="^(json|csv)$"),
+    node_id: Optional[str] = Query(None, max_length=40),
+    limit: int = Query(200, ge=1, le=5000),
+    _admin: str = Depends(verify_admin_key),
+):
+    """One day's readings: newest-first JSON rows, or the whole CSV file to download (format=csv)."""
+    if format == "csv":
+        path = node_log.path_for(date)
+        if path is None:
+            raise HTTPException(status_code=404, detail=f"No sensor log for '{date}' (use YYYY-MM-DD).")
+        return FileResponse(path, media_type="text/csv", filename=f"raah-sensor-log-{date}.csv")
+    rows = node_log.read_rows(date, node_id=node_id, limit=limit)
+    if rows is None:
+        raise HTTPException(status_code=404, detail=f"No sensor log for '{date}' (use YYYY-MM-DD).")
+    return {"date": date, "node_id": node_id, "count": len(rows), "rows": rows}
 
 
 @router.get("/node/placement")

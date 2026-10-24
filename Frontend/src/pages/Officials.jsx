@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Loader2, CheckCircle2, X, Trash2, KeyRound, Megaphone, Ban, Plus } from 'lucide-react';
+import { Shield, Loader2, CheckCircle2, X, Trash2, KeyRound, Megaphone, Ban, Plus, Download, FileText } from 'lucide-react';
 import {
   fetchFieldReports, postAdminValidateReport, fetchPriorityList, fetchClosures,
   deleteAdminClosure, postAdminClosure, postAlertAll, getAdminKey, setAdminKey,
+  fetchNodeLogDays, fetchNodeLogRows, downloadNodeLog,
 } from '../api/client';
 import { scoreToLevel } from '../api/adapters';
 import { RiskBadge } from '../components/RiskIcon';
@@ -12,6 +13,13 @@ const STATUS_STYLE = {
   pending: 'bg-tint-moderate text-risk-moderate',
   verified: 'bg-tint-low text-risk-low',
   rejected: 'bg-glacier text-granite',
+};
+
+const NODE_STATE_STYLE = {
+  ALARM: 'bg-tint-severe text-risk-severe',
+  WARNING: 'bg-tint-high text-risk-high',
+  WATCH: 'bg-tint-moderate text-risk-moderate',
+  OK: 'bg-tint-low text-risk-low',
 };
 
 // Admin / control room. The whole dashboard is for officials, so there is no login screen:
@@ -27,6 +35,11 @@ export const Officials = () => {
   const [closureForm, setClosureForm] = useState({ segmentId: 'seg_05', status: 'closed', reason: '', source: 'NH-7 Control Room' });
   const [broadcast, setBroadcast] = useState({ segmentId: 'all', message: '' });
   const [busy, setBusy] = useState(false);
+  const [logDays, setLogDays] = useState([]);
+  const [logDate, setLogDate] = useState(null);
+  const [logNode, setLogNode] = useState('');
+  const [logRows, setLogRows] = useState([]);
+  const [logLoading, setLogLoading] = useState(false);
 
   function showToast(msg) {
     setToast(msg);
@@ -52,6 +65,47 @@ export const Officials = () => {
   }
 
   useEffect(() => { loadData(); }, []);
+
+  // Sensor log: the list of days, then the newest readings of the chosen day
+  async function loadLogDays() {
+    setLogLoading(true);
+    try {
+      const res = await fetchNodeLogDays();
+      const days = res.days || [];
+      setLogDays(days);
+      const date = logDate || days[0]?.date;
+      if (date) {
+        setLogDate(date);
+        loadLogRows(date, logNode);
+      }
+    } catch (e) {
+      showToast('Could not load the sensor log.' + authHint(e));
+    } finally {
+      setLogLoading(false);
+    }
+  }
+
+  async function loadLogRows(date = logDate, nodeId = logNode) {
+    if (!date) return;
+    setLogLoading(true);
+    try {
+      const res = await fetchNodeLogRows({ date, nodeId, limit: 200 });
+      setLogRows(res.rows || []);
+    } catch (e) {
+      setLogRows([]);
+      showToast('Could not load that day.' + authHint(e));
+    } finally {
+      setLogLoading(false);
+    }
+  }
+
+  async function handleDownloadLog(date) {
+    try {
+      await downloadNodeLog({ date });
+    } catch (e) {
+      showToast('Download failed.' + authHint(e));
+    }
+  }
 
   async function handleValidate(reportId, newStatus) {
     try {
@@ -129,7 +183,7 @@ export const Officials = () => {
           <h1 className="font-condensed text-[26px] md:text-[28px] font-semibold text-ink flex items-center gap-2">
             <Shield className="w-7 h-7 text-river" /> Admin · NH-7 control room
           </h1>
-          <p className="text-granite text-sm mt-1">Verify reports, declare and lift closures, broadcast alerts, and plan BRO pre-positioning.</p>
+          <p className="text-granite text-sm mt-1">Verify reports, declare and lift closures, broadcast alerts, plan BRO pre-positioning, and download the sensor log.</p>
         </div>
         <div className="flex items-center gap-2">
           <KeyRound className="w-4 h-4 text-granite shrink-0" />
@@ -150,10 +204,11 @@ export const Officials = () => {
           { key: 'closures', label: `Closures (${activeClosures.length})` },
           { key: 'broadcast', label: 'Broadcast' },
           { key: 'priority', label: 'BRO Priority' },
+          { key: 'sensorlog', label: 'Sensor log' },
         ].map(t => (
           <button
             key={t.key}
-            onClick={() => setTab(t.key)}
+            onClick={() => { setTab(t.key); if (t.key === 'sensorlog') loadLogDays(); }}
             className={`px-4 py-2 font-condensed font-semibold text-sm border-b-2 transition-colors whitespace-nowrap ${
               tab === t.key ? 'border-river text-ink' : 'border-transparent text-granite hover:text-ink'
             }`}
@@ -161,7 +216,7 @@ export const Officials = () => {
             {t.label}
           </button>
         ))}
-        <button onClick={loadData} className="ml-auto text-xs text-river hover:underline font-sans px-2 shrink-0">
+        <button onClick={() => { loadData(); if (tab === 'sensorlog') loadLogDays(); }} className="ml-auto text-xs text-river hover:underline font-sans px-2 shrink-0">
           {loading ? <Loader2 className="w-3 h-3 animate-spin inline" /> : 'Refresh'}
         </button>
       </div>
@@ -314,6 +369,102 @@ export const Officials = () => {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+      {tab === 'sensorlog' && (
+        <div className="space-y-5 font-sans text-sm">
+          <p className="text-granite">
+            Every reading from the Raah Node sensors is saved here, one file per day (IST), for incident reviews and calibration.
+            Simulated SIM- nodes are not logged. Only the tilt sensor can raise an ALARM; vibration and soil moisture stop at WARNING.
+          </p>
+
+          <div className="bg-snow border border-mist rounded-md overflow-x-auto">
+            <table className="w-full min-w-[560px]">
+              <thead>
+                <tr className="text-left text-xs text-granite border-b border-mist">
+                  <th className="px-4 py-2 font-semibold">Day (IST)</th>
+                  <th className="px-4 py-2 font-semibold">Readings</th>
+                  <th className="px-4 py-2 font-semibold">Nodes</th>
+                  <th className="px-4 py-2 font-semibold">Size</th>
+                  <th className="px-4 py-2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {logDays.length === 0 && (
+                  <tr><td colSpan={5} className="px-4 py-4 text-granite">{logLoading ? 'Loading…' : 'No sensor readings logged yet. Connect a node or run tools/mock_node.py.'}</td></tr>
+                )}
+                {logDays.map(d => (
+                  <tr key={d.date} className={`border-b border-mist last:border-0 ${d.date === logDate ? 'bg-river-tint' : ''}`}>
+                    <td className="px-4 py-2 font-semibold text-ink">{d.date}</td>
+                    <td className="px-4 py-2 tabular-nums">{d.rows.toLocaleString('en-IN')}</td>
+                    <td className="px-4 py-2 text-granite">{d.nodes.join(', ')}</td>
+                    <td className="px-4 py-2 tabular-nums text-granite">{(d.size_bytes / 1024).toFixed(1)} KB</td>
+                    <td className="px-4 py-2">
+                      <div className="flex gap-2 justify-end">
+                        <button onClick={() => { setLogDate(d.date); setLogNode(''); loadLogRows(d.date, ''); }} className="px-3 py-1.5 rounded-md border border-mist bg-white text-xs font-semibold text-ink hover:bg-glacier flex items-center gap-1">
+                          <FileText className="w-3 h-3" /> View
+                        </button>
+                        <button onClick={() => handleDownloadLog(d.date)} className="px-3 py-1.5 rounded-md bg-river text-white text-xs font-semibold hover:opacity-90 flex items-center gap-1">
+                          <Download className="w-3 h-3" /> CSV
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {logDate && (
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <h2 className="font-condensed font-semibold text-ink text-lg">Readings on {logDate}</h2>
+                <select value={logNode} onChange={e => { setLogNode(e.target.value); loadLogRows(logDate, e.target.value); }} aria-label="Filter by node" className="h-9 px-3 rounded-md border border-mist bg-white text-sm">
+                  <option value="">All nodes</option>
+                  {(logDays.find(d => d.date === logDate)?.nodes || []).map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+                <span className="text-xs text-granite">Newest first · last {logRows.length} shown · download the CSV for the full day</span>
+              </div>
+              <div className="bg-snow border border-mist rounded-md overflow-x-auto">
+                <table className="w-full min-w-[860px] text-xs">
+                  <thead>
+                    <tr className="text-left text-granite border-b border-mist">
+                      <th className="px-3 py-2 font-semibold">Time</th>
+                      <th className="px-3 py-2 font-semibold">Node</th>
+                      <th className="px-3 py-2 font-semibold">State</th>
+                      <th className="px-3 py-2 font-semibold text-right">Tilt °</th>
+                      <th className="px-3 py-2 font-semibold text-right">Rate °/min</th>
+                      <th className="px-3 py-2 font-semibold text-right">Vib peak / RMS g</th>
+                      <th className="px-3 py-2 font-semibold text-right">Soil %</th>
+                      <th className="px-3 py-2 font-semibold">Rain</th>
+                      <th className="px-3 py-2 font-semibold">Link</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {logRows.length === 0 && (
+                      <tr><td colSpan={9} className="px-3 py-4 text-granite">{logLoading ? 'Loading…' : 'No readings for this filter.'}</td></tr>
+                    )}
+                    {logRows.map((r, i) => (
+                      <tr key={`${r.server_ms}-${r.node_id}-${i}`} className="border-b border-mist last:border-0 tabular-nums">
+                        <td className="px-3 py-1.5 whitespace-nowrap">{(r.time_ist || '').slice(11)}{r.late === '1' ? ' (late)' : ''}</td>
+                        <td className="px-3 py-1.5 whitespace-nowrap">{r.node_id}{r.kind && r.kind !== 'hardware' ? <span className="text-granite"> · {r.kind}</span> : null}</td>
+                        <td className="px-3 py-1.5 whitespace-nowrap">
+                          <span className={`px-2 py-0.5 rounded font-semibold ${NODE_STATE_STYLE[r.state] || ''}`}>{r.state}</span>
+                          {r.state_capped_from && <span className="ml-1 text-granite" title="The node sent ALARM without a tilt reason; only the tilt sensor may raise ALARM">capped from {r.state_capped_from}</span>}
+                        </td>
+                        <td className="px-3 py-1.5 text-right">{r.tilt_deg || '—'}</td>
+                        <td className="px-3 py-1.5 text-right">{r.tilt_rate_dpm || '—'}</td>
+                        <td className="px-3 py-1.5 text-right">{r.vib_g || '—'}{r.vib_rms_g ? ` / ${r.vib_rms_g}` : ''}</td>
+                        <td className="px-3 py-1.5 text-right">{r.moisture_pct || '—'}</td>
+                        <td className="px-3 py-1.5">{r.rain_wet === '1' ? 'wet' : r.rain_wet === '0' ? 'dry' : '—'}</td>
+                        <td className="px-3 py-1.5 text-granite">{r.link || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -10,10 +10,19 @@ whatever is missing, so a bare-bones sketch works as well as the full firmware:
   ax_g, ay_g, az_g          -> tilt_deg (angle from the node's first reading), vib_g
   tilt_deg over time        -> tilt_rate_dpm (change over the last ~10 s, in deg/min)
   vib_g over time           -> strikes_10s (readings >= 0.35 g in the last 10 s)
-  no state                  -> state from the firmware thresholds below (state_source "server")
+  no state                  -> state from the thresholds below (state_source "server")
 
-A state sent by the node always wins (state_source "node"): the firmware samples at 100 Hz
-and sees far more than one message a second.
+Which sensor may raise what (calibration 2026-10-24, docs/SENSOR_THRESHOLDS.md):
+  tilt angle / tilt rate    -> WATCH, WARNING or ALARM   (the only sensor that can raise ALARM)
+  vibration (RMS or peak)   -> WARNING at most           (traffic and rockfall both shake the node)
+  soil moisture             -> WATCH at 50 %, WARNING at 70 % (saturated); saturation also
+                               lowers the tilt thresholds to 60 %, so tilt alarms sooner
+  rain plate wet            -> WATCH at most
+
+A state sent by the node is kept (state_source "node"): the firmware samples at 100 Hz and
+sees far more than one message a second. The one exception: an ALARM without a tilt or tilt
+rate at ALARM level is lowered to WARNING (state_capped_from "ALARM"), so older or third-party
+firmware cannot raise an ALARM from vibration or soil alone.
 """
 from __future__ import annotations
 
@@ -24,11 +33,12 @@ from typing import Any, Deque, Dict, Optional, Tuple
 
 from app import config
 
-# Firmware thresholds (dry soil), 48 h plan 4.2; same numbers as tools/mock_node.py
+# Thresholds (dry soil), 48 h plan 4.2, recalibrated 2026-10-24. Same numbers in
+# tools/mock_node.py, Hardware/raah_node/raah_node.ino and Frontend/src/pages/Sensors.jsx.
 TILT_WATCH, TILT_WARN, TILT_ALARM = 2.0, 5.0, 8.0     # degrees
 RATE_WARN, RATE_ALARM = 3.0, 8.0                     # degrees per minute
-VIB_WARN_RMS, IMPACT_G, SEVERE_G = 0.10, 0.35, 0.80  # g
-MOIST_SAT, WET_FACTOR = 70.0, 0.6                    # saturated soil -> tilt/rate thresholds x 0.6
+VIB_WARN_RMS, IMPACT_G = 0.10, 0.35                  # g; vibration never goes above WARNING
+MOIST_WATCH, MOIST_SAT, WET_FACTOR = 50.0, 70.0, 0.6  # %; saturated soil -> WARNING and tilt/rate thresholds x 0.6
 
 RATE_WINDOW_MS = 10_000
 RATE_MIN_SPAN_MS = 3_000
@@ -52,14 +62,20 @@ def raw_to_pct(raw: Optional[float], dry: int, wet: int) -> Optional[float]:
     return round(min(100.0, max(0.0, pct)), 1)
 
 
-def classify(tilt: float, rate: float, vrms: float, vpk: float, moist: float,
-             rain_wet: int, impact_confirmed: bool) -> str:
+def tilt_alarm(tilt: float, rate: float, moist: float) -> bool:
+    """True when the tilt sensor alone justifies an ALARM (angle or rate, lowered on saturated soil)."""
     f = WET_FACTOR if moist >= MOIST_SAT else 1.0
-    if tilt >= TILT_ALARM * f or rate >= RATE_ALARM * f or impact_confirmed:
+    return tilt >= TILT_ALARM * f or rate >= RATE_ALARM * f
+
+
+def classify(tilt: float, rate: float, vrms: float, vpk: float, moist: float, rain_wet: int) -> str:
+    f = WET_FACTOR if moist >= MOIST_SAT else 1.0
+    if tilt_alarm(tilt, rate, moist):
         return "ALARM"
-    if tilt >= TILT_WARN * f or rate >= RATE_WARN * f or vrms >= VIB_WARN_RMS or vpk >= IMPACT_G:
+    if (tilt >= TILT_WARN * f or rate >= RATE_WARN * f
+            or vrms >= VIB_WARN_RMS or vpk >= IMPACT_G or moist >= MOIST_SAT):
         return "WARNING"
-    if tilt >= TILT_WATCH * f or moist >= MOIST_SAT or rain_wet:
+    if tilt >= TILT_WATCH * f or moist >= MOIST_WATCH or rain_wet:
         return "WATCH"
     return "OK"
 
@@ -132,16 +148,17 @@ def complete(reading: Dict[str, Any], now: int, remember: bool = True) -> Dict[s
             if vib is not None:
                 vib_hist.append((now, float(vib)))
 
+    tilt = r.get("tilt_deg") or 0.0
+    rate = r.get("tilt_rate_dpm") or 0.0
+    moist = r.get("moisture_pct") or 0.0
     if r.get("state"):
         r["state_source"] = "node"
+        # Only the tilt sensor may raise an ALARM, whatever the firmware decided
+        if r["state"] == "ALARM" and not tilt_alarm(tilt, rate, moist):
+            r["state"] = "WARNING"
+            r["state_capped_from"] = "ALARM"
     else:
-        tilt = r.get("tilt_deg") or 0.0
-        vpk = r.get("vib_g") or 0.0
-        # Two-stage impact (F5): a severe hit, or a strike with the slope also moving
-        impact_confirmed = vpk >= SEVERE_G or (vpk >= IMPACT_G and tilt >= TILT_WATCH)
-        r["state"] = classify(
-            tilt, r.get("tilt_rate_dpm") or 0.0, r.get("vib_rms_g") or 0.0, vpk,
-            r.get("moisture_pct") or 0.0, r.get("rain_wet") or 0, impact_confirmed,
-        )
+        r["state"] = classify(tilt, rate, r.get("vib_rms_g") or 0.0, r.get("vib_g") or 0.0,
+                              moist, r.get("rain_wet") or 0)
         r["state_source"] = "server"
     return r

@@ -6,6 +6,16 @@ import pytest
 # data/landslide_nh7.db with a running demo server wiped live data (log.md L-021).
 # Must be set before `app` is imported: config/database read DB_PATH at import time.
 os.environ["DB_PATH"] = str(Path(__file__).resolve().parent.parent / "data" / "test_landslide_nh7.db")
+# Same for the daily sensor log files (app/node_log.py): never write into logs/node_readings.
+os.environ["NODE_LOG_DIR"] = str(Path(__file__).resolve().parent.parent / "data" / "test_node_logs")
+# And for the rain snapshot: weather tests save mocked Open-Meteo answers (36 mm everywhere) as the
+# snapshot. Written into data/rain_snapshot.json, the running server served that fake rain whenever
+# live weather failed and the whole map turned High (log.md L-051). Tests start from a copy.
+_DATA = Path(__file__).resolve().parent.parent / "data"
+_TEST_SNAPSHOT = _DATA / "test_rain_snapshot.json"
+if not _TEST_SNAPSHOT.exists() and (_DATA / "rain_snapshot.json").exists():
+    _TEST_SNAPSHOT.write_bytes((_DATA / "rain_snapshot.json").read_bytes())
+os.environ["SNAPSHOT_PATH"] = str(_TEST_SNAPSHOT)
 
 from app import config
 config.ENABLE_SCHEDULER = False

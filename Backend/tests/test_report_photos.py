@@ -69,3 +69,16 @@ def test_report_accepts_the_returned_photo_url():
         assert any(r["photo_url"] == url for r in listed)
     finally:
         (reports.PHOTO_DIR / url.rsplit("/", 1)[1]).unlink(missing_ok=True)
+
+
+def test_seed_reports_use_the_bundled_landslide_photos():
+    """Seed reports show real landslide photos served by this backend, not stock photos (log.md L-049)."""
+    from app.seed_data import SEED_FIELD_REPORTS
+
+    listed = {r["description"]: r["photo_url"] for r in client.get("/field-reports").json()}
+    for rep in SEED_FIELD_REPORTS:
+        assert rep["photo_url"].startswith("/static/landslides/")
+        assert client.get(rep["photo_url"]).status_code == 200
+        if rep["description"] in listed:
+            assert listed[rep["description"]] == "http://testserver" + rep["photo_url"]
+    assert not any("unsplash" in (url or "") for url in listed.values())

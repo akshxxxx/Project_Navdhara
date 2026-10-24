@@ -20,6 +20,9 @@ ENV/
 logs/*.log
 *.log
 data/*.db
+# Sensor log files and the rain snapshot written by the test suite (tests/conftest.py)
+data/test_node_logs/
+data/test_rain_snapshot.json
 data/*.sqlite3
 *.bak
 data/*.bak

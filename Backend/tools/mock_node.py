@@ -3,7 +3,8 @@ mock_node.py - A fake Raah Node that posts contract-v2 readings to the backend
 ===============================================================================
 Use it to build and test everything before the ESP32 exists. It follows the firmware's
 rules (48 h plan section 4.2; 30 h plan F5/F6/F7): four states, tilt rate over 30 s,
-wet soil (moisture >= 70 %) lowers tilt/rate thresholds to 60 %, two-stage impact.
+wet soil (moisture >= 70 %) gives WARNING and lowers tilt/rate thresholds to 60 %.
+Only tilt can raise ALARM; vibration and soil moisture stop at WARNING (docs/SENSOR_THRESHOLDS.md).
 Its node_id starts with MOCK- so every screen labels it "MOCK DATA"; it still escalates
 the segment exactly like real hardware would.
 
@@ -20,8 +21,8 @@ Scenarios:
     calm     60 s of normal readings (OK)
     creep    slow 6 deg lift over 120 s: WATCH, then WARNING (the E1 "slow" case)
     alarm    fast lift to 9 deg in 10 s: ALARM, then back to flat: incident closes
-    impact   stone drop (severe knock): WARNING at once, confirmed ALARM, then calm
-    wet      soil saturates, then 3.5 deg tilt: WARNING (dry soil would only be WATCH)
+    impact   stone drop (severe knock): WARNING only (vibration never raises ALARM), then calm
+    wet      soil saturates (WARNING on its own), then a 3.5 deg tilt: still WARNING, ALARM from 4.8 deg
     lost     ALARM, then the node goes silent: backend shows SENSOR_LOST after 15 s
     outage   link down for 20 s, then live + late outbox messages ("late": 1)
     demo     the 5-minute demo chain: calm, creep, fast lift to ALARM, then silent
@@ -37,20 +38,21 @@ from collections import deque
 
 from _common import DEFAULT_URL, STATE_NAMES, post_json, read_env_value
 
-# Firmware thresholds (dry soil), 48 h plan 4.2
+# Thresholds (dry soil), 48 h plan 4.2, recalibrated 2026-10-24; same as app/node_sensors.py
 TILT_WATCH, TILT_WARN, TILT_ALARM = 2.0, 5.0, 8.0
 RATE_WARN, RATE_ALARM = 3.0, 8.0
-VIB_WARN_RMS, IMPACT_G, SEVERE_G = 0.10, 0.35, 0.80
-MOIST_SAT, WET_FACTOR = 70.0, 0.6
+VIB_WARN_RMS, IMPACT_G = 0.10, 0.35
+MOIST_WATCH, MOIST_SAT, WET_FACTOR = 50.0, 70.0, 0.6
 
 
-def classify(tilt, rate, vrms, vpk, moist, rain_wet, impact_confirmed):
+def classify(tilt, rate, vrms, vpk, moist, rain_wet):
     f = WET_FACTOR if moist >= MOIST_SAT else 1.0
-    if tilt >= TILT_ALARM * f or rate >= RATE_ALARM * f or impact_confirmed:
+    if tilt >= TILT_ALARM * f or rate >= RATE_ALARM * f:  # only the tilt sensor raises ALARM
         return "ALARM"
-    if tilt >= TILT_WARN * f or rate >= RATE_WARN * f or vrms >= VIB_WARN_RMS or vpk >= IMPACT_G:
+    if (tilt >= TILT_WARN * f or rate >= RATE_WARN * f
+            or vrms >= VIB_WARN_RMS or vpk >= IMPACT_G or moist >= MOIST_SAT):
         return "WARNING"
-    if tilt >= TILT_WATCH * f or moist >= MOIST_SAT or rain_wet:
+    if tilt >= TILT_WATCH * f or moist >= MOIST_WATCH or rain_wet:
         return "WATCH"
     return "OK"
 
@@ -173,7 +175,7 @@ def main():
         history.append(tilt)
         rate = (tilt - history[0]) * 2.0 if len(history) > 1 else 0.0
         rate = max(rate, 0.0)
-        state = classify(tilt, rate, vrms, vpk, moist, rain, imp)
+        state = classify(tilt, rate, vrms, vpk, moist, rain)
         now_ms = int(time.time() * 1000)
         if state != prev_state:
             event_ts_ms = now_ms

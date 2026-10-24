@@ -33,7 +33,7 @@
 // ============================== CONFIG ==============================
 const char* NODE_ID    = "NODE1";            // no MOCK- / SIM- / REPLAY prefix for real hardware
 const char* SEGMENT_ID = "seg_05";           // stretch where the node is installed
-const char* FW_VERSION = "2.1.0";
+const char* FW_VERSION = "2.2.0";
 // ===================================================================
 
 const int PIN_SDA = 21, PIN_SCL = 22, PIN_SOIL = 34, PIN_RAIN = 35;
@@ -44,11 +44,12 @@ const int SOIL_DRY = 4095, SOIL_WET = 1250;
 const int RAIN_DRY = 4095, RAIN_WET = 2400;
 const float RAIN_WET_PCT = 50.0;
 
-// Thresholds: same numbers as Backend/app/node_sensors.py
+// Thresholds: same numbers as Backend/app/node_sensors.py (Backend/docs/SENSOR_THRESHOLDS.md).
+// Only the tilt sensor raises ALARM; vibration and soil moisture stop at WARNING.
 const float TILT_WATCH = 2.0, TILT_WARN = 5.0, TILT_ALARM = 8.0;   // degrees
 const float RATE_WARN = 3.0, RATE_ALARM = 8.0;                     // degrees per minute
-const float VIB_WARN_RMS = 0.10, IMPACT_G = 0.35, SEVERE_G = 0.80; // g
-const float MOIST_SAT = 70.0, WET_FACTOR = 0.6;                    // wet soil: tilt/rate thresholds x 0.6
+const float VIB_WARN_RMS = 0.10, IMPACT_G = 0.35;                  // g: WARNING only
+const float MOIST_WATCH = 50.0, MOIST_SAT = 70.0, WET_FACTOR = 0.6; // %: saturated = WARNING, tilt thresholds x 0.6
 const uint32_t HOLD_MS = 5000;                                     // stay in a higher state at least 5 s
 
 enum State { S_OK = 0, S_WATCH = 1, S_WARNING = 2, S_ALARM = 3 };
@@ -174,10 +175,10 @@ uint32_t seq = 0;
 
 State classify(float tilt, float rate, float vrms, float vpk, float moist, int rainWet) {
   float f = moist >= MOIST_SAT ? WET_FACTOR : 1.0f;
-  bool impactConfirmed = vpk >= SEVERE_G || (vpk >= IMPACT_G && tilt >= TILT_WATCH);
-  if (tilt >= TILT_ALARM * f || rate >= RATE_ALARM * f || impactConfirmed) return S_ALARM;
-  if (tilt >= TILT_WARN * f || rate >= RATE_WARN * f || vrms >= VIB_WARN_RMS || vpk >= IMPACT_G) return S_WARNING;
-  if (tilt >= TILT_WATCH * f || moist >= MOIST_SAT || rainWet) return S_WATCH;
+  if (tilt >= TILT_ALARM * f || rate >= RATE_ALARM * f) return S_ALARM;   // tilt only
+  if (tilt >= TILT_WARN * f || rate >= RATE_WARN * f || vrms >= VIB_WARN_RMS || vpk >= IMPACT_G
+      || moist >= MOIST_SAT) return S_WARNING;
+  if (tilt >= TILT_WATCH * f || moist >= MOIST_WATCH || rainWet) return S_WATCH;
   return S_OK;
 }
 

@@ -10,6 +10,7 @@ import { postFieldReport, fetchFieldReports, fetchRiskMap, postAdminValidateRepo
 import { adaptSegment } from '../api/adapters';
 import { InteractiveMap } from '../components/InteractiveMap';
 import { SEGMENTS, TOWNS } from '../data/segments';
+import { photoForDescription } from '../data/landslidePhotos';
 
 const REPORT_INCIDENT_TYPES = [
   { id: 'landslide', label: 'Landslide', icon: AlertTriangle, color: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-200' },
@@ -194,15 +195,7 @@ export const Report = () => {
           : { label: 'Pending', bg: 'bg-amber-100 text-amber-800' };
 
       // Image thumbnail
-      const thumbnail = r.photo_url || (
-        i === 0
-          ? 'https://images.unsplash.com/photo-1542332213-9b5a5a3fad35?auto=format&fit=crop&w=400&q=80'
-          : i === 1
-            ? 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=400&q=80'
-            : i === 2
-              ? 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80'
-              : 'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=400&q=80'
-      );
+      const thumbnail = r.photo_url || photoForDescription(r.description, i);
 
       return {
         ...r,

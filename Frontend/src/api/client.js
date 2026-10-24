@@ -238,3 +238,33 @@ export async function postNodeAck({ nodeId, adminKey = getAdminKey() }) {
   return res.json();
 }
 
+// Sensor log (Admin page): one CSV per IST day of every node reading (Backend/app/node_log.py)
+export async function fetchNodeLogDays({ adminKey = getAdminKey() } = {}) {
+  const res = await apiFetch('/admin/node-logs', { headers: { 'X-Admin-Key': adminKey || '' } });
+  return res.json();
+}
+
+export async function fetchNodeLogRows({ date, nodeId, limit = 200, adminKey = getAdminKey() }) {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (nodeId) params.set('node_id', nodeId);
+  const res = await apiFetch(`/admin/node-logs/${encodeURIComponent(date)}?${params}`, {
+    headers: { 'X-Admin-Key': adminKey || '' },
+  });
+  return res.json();
+}
+
+// The CSV needs the admin key header, so it is fetched and saved through a temporary link
+export async function downloadNodeLog({ date, adminKey = getAdminKey() }) {
+  const res = await apiFetch(`/admin/node-logs/${encodeURIComponent(date)}?format=csv`, {
+    headers: { 'X-Admin-Key': adminKey || '' },
+  });
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `raah-sensor-log-${date}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+

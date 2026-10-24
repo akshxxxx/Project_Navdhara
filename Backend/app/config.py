@@ -206,5 +206,9 @@ NODE_SERIAL_BAUD = int(os.getenv("NODE_SERIAL_BAUD", "115200"))
 # Used when a USB line carries no node_id / segment_id
 NODE_SERIAL_NODE_ID = os.getenv("NODE_SERIAL_NODE_ID", "NODE1").strip()
 NODE_SERIAL_SEGMENT = os.getenv("NODE_SERIAL_SEGMENT", "seg_05").strip()
+# Daily CSV log of every node reading (app/node_log.py), downloadable from the Admin page.
+# Simulated SIM- nodes are not logged.
+NODE_LOG_DIR = Path(os.getenv("NODE_LOG_DIR", str(LOGS_DIR / "node_readings"))).resolve()
+NODE_LOG_ENABLED = os.getenv("NODE_LOG_ENABLED", "true").lower() in ("true", "1", "yes")
 # Optional point scores from the terrain model for /node/placement (lat, lon, segment_id, score[, chainage_km])
 POINT_SCORES_CSV = Path(os.getenv("POINT_SCORES_CSV", str(DATA_DIR / "point_scores.csv"))).resolve()

@@ -115,7 +115,7 @@ def test_server_state_alarm_escalates_like_firmware_alarm(hw_env):
 
 
 def test_state_sent_by_node_wins_and_accepts_simple_spellings():
-    r = post({"state": "alarm", "tilt_deg": 0.1})
+    r = post({"state": "alarm", "tilt_deg": 9.2})
     assert r.status_code == 201 and r.json()["state"] == "ALARM" and r.json()["state_source"] == "node"
     assert post({"state": 1}).json()["state"] == "WATCH"
     assert post({"state": "BROKEN"}).status_code == 422
@@ -228,3 +228,54 @@ def test_serial_pause_and_resume_need_the_admin_key(monkeypatch):
     assert client.post("/node/serial/pause").status_code == 401
     assert client.post("/node/serial/pause", headers={"X-Admin-Key": "adm-key"}).json()["paused"] is True
     assert client.post("/node/serial/resume", headers={"X-Admin-Key": "adm-key"}).json()["paused"] is False
+
+
+# ---------------------------------------------------------------- calibration: only tilt raises ALARM
+
+def test_vibration_alone_never_goes_above_warning():
+    # a severe knock (0.95 g peak, 0.3 g RMS) on a still slope: WARNING, not ALARM
+    r = post({"tilt_deg": 0.3, "vib_g": 0.95, "vib_rms_g": 0.30, "soil_raw": 4000})
+    assert r.json()["state"] == "WARNING" and r.json()["state_source"] == "server"
+
+
+def test_soil_moisture_alone_tops_out_at_warning():
+    assert post({"tilt_deg": 0.2, "soil_raw": 2600}).json()["state"] == "WATCH"     # ~52 %
+    assert post({"tilt_deg": 0.2, "soil_raw": 1250}).json()["state"] == "WARNING"   # 100 %, saturated
+    # saturated soil lowers the tilt ALARM to 8 x 0.6 = 4.8 deg: tilt still makes the ALARM
+    assert post({"tilt_deg": 5.0, "soil_raw": 1250}).json()["state"] == "ALARM"
+
+
+def test_node_alarm_without_tilt_reason_is_capped_to_warning():
+    r = post({"state": "ALARM", "tilt_deg": 0.4, "vib_g": 0.9, "soil_raw": 1300})
+    assert r.json()["state"] == "WARNING" and r.json()["state_capped_from"] == "ALARM"
+    n = fleet_node()
+    assert n["state"] == "WARNING" and n["health"]["state_capped_from"] == "ALARM"
+    seg = next(s for s in client.get("/risk-map").json()["segments"] if s["id"] == "seg_08")
+    assert seg["node_escalation"]["avoid"] is False   # WARNING: High, not AVOID
+
+
+# ---------------------------------------------------------------- daily sensor log for the Admin page
+
+def test_readings_go_to_the_daily_log_and_admins_can_read_it(monkeypatch, tmp_path):
+    from app import node_log
+    monkeypatch.setattr(config, "NODE_LOG_DIR", tmp_path)
+    monkeypatch.setattr(config, "ADMIN_API_KEY", "adm-key")
+    A = {"X-Admin-Key": "adm-key"}
+    post({"tilt_deg": 0.4, "soil_raw": 3900, "rain_raw": 4090})
+    post({"state": "ALARM", "tilt_deg": 0.5, "vib_g": 0.9})                       # capped
+    client.post("/node/reading", json={"node_id": "SIM-01", "segment_id": "seg_02", "state": "OK"}, headers=H)
+    day = node_log.day_of(T0)
+
+    assert client.get("/admin/node-logs").status_code == 401
+    days = client.get("/admin/node-logs", headers=A).json()["days"]
+    assert days == [{"date": day, "rows": 2, "size_bytes": days[0]["size_bytes"], "nodes": ["NODE1"]}]  # SIM- not logged
+
+    rows = client.get(f"/admin/node-logs/{day}", headers=A).json()["rows"]
+    assert rows[0]["state"] == "WARNING" and rows[0]["state_capped_from"] == "ALARM"   # newest first
+    assert rows[1]["moisture_pct"] == "6.9" and rows[1]["soil_raw"] == "3900.0" and rows[1]["kind"] == "hardware"
+
+    csv_resp = client.get(f"/admin/node-logs/{day}?format=csv", headers=A)
+    assert csv_resp.status_code == 200 and csv_resp.headers["content-type"].startswith("text/csv")
+    assert csv_resp.text.splitlines()[0].startswith("time_ist,server_ms,node_id")
+    assert client.get("/admin/node-logs/2026-01-01", headers=A).status_code == 404
+    assert client.get("/admin/node-logs/..%2F..%2Fapp", headers=A).status_code in (404, 422)

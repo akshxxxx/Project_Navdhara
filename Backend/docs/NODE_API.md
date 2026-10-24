@@ -25,7 +25,7 @@ The mock node is called `MOCK-NODE1` on `seg_05`. Every screen labels it **MOCK 
 | `calm` | 60 s of normal readings | ONLINE, OK |
 | `creep` | slow 6° lift over 120 s | WATCH, then WARNING; planner CAUTION (the E1 "slow" case) |
 | `alarm` | fast lift to 9° in 10 s, then back to flat | ALARM, planner AVOID, Telegram; incident closes when calm |
-| `impact` | severe stone drop | two-stage impact (F5) to ALARM |
+| `impact` | severe stone drop | WARNING only: vibration never raises ALARM (calibration L-050) |
 | `wet` | soil saturates, then a 3.5° tilt | WARNING (dry soil would only give WATCH): the wet-soil rule |
 | `lost` | ALARM, then the node goes silent | **SENSOR_LOST** after 15 s; alert held until "site checked" |
 | `outage` | Wi-Fi off for 20 s, then back | outbox: live message first, old ones tagged `late`; delivery % |
@@ -131,6 +131,8 @@ Any sketch works if it prints one JSON line per second on serial (or POSTs it). 
 | GET | `/node/placement?n=10&min_spacing_km=2` | – | proposed node sites (F8) |
 | GET | `/node/serial` | – | USB link: `state` (searching / connected / port_busy / paused / off), `port`, `chip`, `readings`, `skipped_wifi_dupes`, `bad_lines`, `last_error`, `recent_log` (the board's boot/NET lines) |
 | POST | `/node/serial/pause`, `/node/serial/resume` | admin key | free / retake the USB port (flashing, Serial Monitor) |
+| GET | `/admin/node-logs` | admin key | daily sensor log files: `{dir, columns, days:[{date, rows, size_bytes, nodes}]}` |
+| GET | `/admin/node-logs/{YYYY-MM-DD}` | admin key | that day's readings, newest first (`?node_id=&limit=`), or the CSV file with `?format=csv` |
 
 All timings in `/node/incidents` use the **laptop's clock** (F2). A mark links to the next incident that opens within 180 s. `delivery` in `/node/fleet` gives received vs expected messages from `seq` (experiment E6).
 
@@ -151,7 +153,7 @@ All tools default to `http://127.0.0.1:8000`, because "localhost" costs ~2 s per
 ## 7. Still mock / still to do
 
 - **Placement** uses a **mock** score (each road vertex gets its segment's terrain percentile) until S3 puts `point_scores.csv` (`lat, lon, segment_id, score[, chainage_km]`) in `Backend/data/`. The response says `is_mock: true` until then.
-- Node thresholds and two-stage impact live in the **firmware** (`Hardware/raah_node/raah_node.ino`). The backend has the same numbers in `app/node_sensors.py` and uses them only when a node sends no state. Change both together.
+- Thresholds: **[SENSOR_THRESHOLDS.md](SENSOR_THRESHOLDS.md)** (what raises what, why, references). Only tilt can raise ALARM; vibration and soil moisture stop at WARNING. The firmware (`Hardware/raah_node/raah_node.ino`), `app/node_sensors.py`, `tools/mock_node.py` and the Sensors page hold the same numbers; change them together. The backend lowers any node-sent ALARM without a tilt reason to WARNING (`state_capped_from`).
 - The firmware has not been compiled or run by the software side yet (no Arduino toolchain on the backend laptop). The outbox (F7 late messages) is not in this firmware; USB fills Wi-Fi gaps instead.
 - Not built (plan says don't, or stretch only): LoRa, HMAC/TLS on the node, ESP-NOW gateway forwarder (F13), placement coverage statistics (S3's `placement.py`).
 
@@ -159,3 +161,13 @@ All tools default to `http://127.0.0.1:8000`, because "localhost" costs ~2 s per
 
 `NODE_API_KEY` (required for Wi-Fi readings; USB needs no key), `NODE_STALE_S=15`, `NODE_OFFLINE_S=120`, `NODE_LATE_S=15`, `NODE_MARK_WINDOW_S=180`, `POINT_SCORES_CSV` (default `data/point_scores.csv`).
 USB: `NODE_SERIAL=auto` (or `COM5`, or `off`), `NODE_SERIAL_BAUD=115200`, `NODE_SERIAL_NODE_ID=NODE1`, `NODE_SERIAL_SEGMENT=seg_05`. Calibration: `NODE_SOIL_DRY_RAW=4095`, `NODE_SOIL_WET_RAW=1250`, `NODE_RAIN_DRY_RAW=4095`, `NODE_RAIN_WET_RAW=2400`, `NODE_RAIN_WET_PCT=50`.
+
+## 9. Sensor log (for the control room)
+
+Every reading from a real, mock or replayed node is also appended to one CSV file per IST day:
+`Backend/logs/node_readings/YYYY-MM-DD.csv` (`NODE_LOG_DIR`, `NODE_LOG_ENABLED=true`). Simulated SIM- nodes are not logged.
+Columns: `time_ist, server_ms, node_id, kind, segment_id, state, state_source, state_capped_from, late, tilt_deg, tilt_rate_dpm,
+vib_g, vib_rms_g, strikes_10s, moisture_pct, soil_raw, rain_wet, rain_pct, rain_raw, link, rssi_dbm, seq, fw`.
+
+Officials open it on the dashboard: **Admin → Sensor log** (list of days, the newest 200 readings of a day filtered by node,
+**CSV** download). The files are git-ignored and kept until someone deletes them.

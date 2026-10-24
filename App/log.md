@@ -492,5 +492,17 @@ Each entry records **When** (IST), **Who**, **What**, **Why**, **How**, and the 
   1033 and Ambulance 108. The advice that mentions BRO ("wait for BRO or police to clear it") is unchanged.
 - **How:** Removed the BRO entry from `HELPLINES` and its two now-unused Hindi strings. A BRO contact sent by
   the backend's offline pack is not shown either, because the screen only lists the lines in `HELPLINES`.
-- **Checked:** `tsc` and ESLint clean; Hindi checker shows no missing keys.
+- **Checked:** `tsc` and ESLint clean; Hindi checker shows no missing keys. APK rebuilt (36.0 MB), installed
+  on the Xiaomi 22101320I and launched with no crash.
 - **Files:** `src/domain/helplines.ts`, `src/i18n/hi.ts`
+
+### APP-025 — Recent reports show real landslide photos (backend change only)
+- **When:** 2026-10-24 09:47 IST
+- **Who:** Claude Code for Aakash ("change the mock pics … to these real landslide pics in the app, website …")
+- **What:** The three sample reports in Recent reports now show real landslide photos instead of Unsplash stock
+  images. The app has no past-alerts photos, so nothing else changed in the app.
+- **How:** No app code changed. The backend now stores the photos and sends full URLs on the address the app
+  uses (root `log.md` L-049). The installed APK picks them up as is.
+- **Checked:** on the web build, Recent reports loads all three photos. With the phone's address the backend
+  returns `http://172.168.11.111:8000/static/landslides/…` URLs. Not looked at on the phone itself.
+- **Files:** none in App

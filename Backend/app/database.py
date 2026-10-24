@@ -286,6 +286,13 @@ def seed_database(conn: sqlite3.Connection):
                 rep["updated_at"]
             ))
 
+    # Databases seeded before L-049 still point the seed reports at Unsplash stock photos
+    for rep in SEED_FIELD_REPORTS:
+        cursor.execute("""
+            UPDATE field_reports SET photo_url = ?
+            WHERE description = ? AND photo_url LIKE 'https://images.unsplash.com/%'
+        """, (rep["photo_url"], rep["description"]))
+
     # Check landslide history
     cursor.execute("SELECT COUNT(*) as count FROM landslide_history")
     if cursor.fetchone()["count"] == 0:

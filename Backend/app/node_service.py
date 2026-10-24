@@ -30,7 +30,7 @@ import threading
 import time
 from typing import Any, Dict, List, Optional
 
-from app import config, node_sensors
+from app import config, node_log, node_sensors
 from app.database import get_db
 
 log = logging.getLogger("backend")
@@ -52,7 +52,7 @@ HEALTH_FIELDS = (
     "fw", "rssi_dbm", "uptime_s", "heap_free", "rtt_ms", "buffered", "overwritten",
     "strikes_10s", "vib_thr_g", "vib_rms_g", "link", "relay_rssi_dbm",
     # raw hardware values and who decided the state (app/node_sensors.py)
-    "soil_raw", "rain_raw", "rain_pct", "state_source",
+    "soil_raw", "rain_raw", "rain_pct", "state_source", "state_capped_from",
 )
 READING_FIELDS = (
     "tilt_deg", "tilt_rate_dpm", "vib_g", "moisture_pct", "rain_wet", "model_state",
@@ -198,10 +198,12 @@ def on_reading(reading: Dict[str, Any], now: Optional[int] = None) -> Dict[str, 
                 now, 1 if late else 0, json.dumps(extra),
             ))
             stored_id = cur.lastrowid
+            node_log.append(reading, kind, now, late)  # daily CSV for the Admin page
 
             result = {
                 "node_id": node_id, "kind": kind, "late": late, "stored_id": stored_id,
                 "state": state, "state_source": reading["state_source"],
+                "state_capped_from": reading.get("state_capped_from"),
                 "server_ms": now, "incident_id": None, "alarm_started": False,
             }
             if late:

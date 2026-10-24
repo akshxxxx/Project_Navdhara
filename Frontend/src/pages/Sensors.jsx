@@ -16,12 +16,13 @@ import { InteractiveMap } from '../components/InteractiveMap';
 
 const POLL_MS = 2000;
 
-// Firmware default thresholds (48 h workflow §4.2). Bench values; the flashed CONFIG may differ.
+// Thresholds (48 h workflow §4.2, recalibrated 2026-10-24; Backend/docs/SENSOR_THRESHOLDS.md).
+// Only tilt can raise ALARM; vibration and soil moisture stop at WARNING. Bench values.
 const T = {
   tiltWatch: 2, tiltWarn: 5, tiltAlarm: 8,
   rateWarn: 3, rateAlarm: 8,
   vibWarnRms: 0.10, impactPeak: 0.35,
-  moistSat: 70, wetFactor: 0.6,
+  moistWatch: 50, moistSat: 70, wetFactor: 0.6,
 };
 
 const STATE_STYLE = {
@@ -80,7 +81,7 @@ function sensorLevels(r, h) {
     : (tilt >= T.tiltWarn * f || rate >= T.rateWarn * f) ? 'WARNING'
       : tilt >= T.tiltWatch * f ? 'WATCH' : 'OK';
   const vibLevel = (peak >= T.impactPeak || rms >= T.vibWarnRms) ? 'WARNING' : 'OK';
-  const moistLevel = wet ? 'WATCH' : 'OK';
+  const moistLevel = wet ? 'WARNING' : (r.moisture_pct ?? 0) >= T.moistWatch ? 'WATCH' : 'OK';
   const rainLevel = r.rain_wet ? 'WATCH' : 'OK';
   return { wet, f, tiltLevel, vibLevel, moistLevel, rainLevel };
 }
@@ -204,7 +205,7 @@ function SensorReadout({ node, history, segName, onAck, acking }) {
           <Gauge value={r.vib_g} max={0.6} color={STATE_STYLE[lv.vibLevel].color}
             ticks={[{ at: T.vibWarnRms, short: 'RMS', label: 'WARNING (RMS)' }, { at: T.impactPeak, short: 'IMP', label: 'Impact (peak)' }]} />
           <div className="text-[10px] text-granite mt-5">
-            WARNING at RMS ≥ {T.vibWarnRms} g · impact at peak ≥ {T.impactPeak} g (two-stage: confirmed → ALARM)
+            WARNING at RMS ≥ {T.vibWarnRms} g or a knock ≥ {T.impactPeak} g · never ALARM on its own (traffic shakes the road too)
             {h.strikes_10s ? <span className="font-semibold text-ink"> · {h.strikes_10s} knock(s) in 10 s</span> : null}
           </div>
         </SensorTile>
@@ -213,11 +214,11 @@ function SensorReadout({ node, history, segName, onAck, acking }) {
           footer={<Sparkline points={history} field="moisture_pct" max={100} color="#0284c7" />}>
           <div className="mt-1"><span className="font-condensed font-bold text-3xl text-ink tabular-nums">{fmt(r.moisture_pct, 0)}</span><span className="text-sm text-granite">%</span></div>
           <Gauge value={r.moisture_pct} max={100} color={lv.wet ? '#d49a00' : '#0284c7'}
-            ticks={[{ at: T.moistSat, short: 'SAT', label: 'Saturated' }]} />
+            ticks={[{ at: T.moistWatch, short: 'W', label: 'WATCH' }, { at: T.moistSat, short: 'SAT', label: 'Saturated: WARNING' }]} />
           <div className="text-[10px] text-granite mt-5">
             {lv.wet
-              ? <span className="font-semibold text-amber-700">Saturated (≥ {T.moistSat}%): tilt thresholds lowered to 60%.</span>
-              : <>Saturated at ≥ {T.moistSat}%: then tilt thresholds drop to 60%.</>}
+              ? <span className="font-semibold text-amber-700">Saturated (≥ {T.moistSat}%): WARNING, and tilt thresholds lowered to 60%.</span>
+              : <>WATCH from {T.moistWatch}%, WARNING when saturated (≥ {T.moistSat}%), never ALARM on its own.</>}
             {h.soil_raw != null && <span className="block tabular-nums">LM393 on GPIO34 · ADC {Math.round(h.soil_raw)} (dry 4095, wet ~1250)</span>}
           </div>
         </SensorTile>
@@ -244,6 +245,7 @@ function SensorReadout({ node, history, segName, onAck, acking }) {
         <span>uptime {h.uptime_s != null ? `${Math.round(h.uptime_s / 60)} min` : '—'}</span>
         <span>fw {h.fw ?? '—'}</span>
         {h.state_source && <span>state decided by {h.state_source === 'server' ? 'the backend (raw data)' : 'the node'}</span>}
+        {h.state_capped_from && <span className="font-semibold text-risk-high">node sent {h.state_capped_from} without a tilt reason: shown as WARNING</span>}
         <span>delivered {node.delivery?.delivered_pct ?? '—'}%{node.delivery?.late_recovered ? ` (${node.delivery.late_recovered} late)` : ''}</span>
       </div>
       <p className="text-[10px] text-granite mt-2">Thresholds shown are the firmware defaults from the bench workflow; the node decides its state with its flashed values.</p>

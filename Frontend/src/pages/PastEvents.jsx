@@ -6,6 +6,7 @@ import {
   ExternalLink, Loader2, Info
 } from 'lucide-react';
 import { fetchHistory, fetchFieldReports } from '../api/client';
+import { LANDSLIDE_PHOTOS, landslidePhoto, photoForDescription } from '../data/landslidePhotos';
 
 // Realistic historical events matching NH-7 corridor geography and reference design
 const BASE_HISTORICAL_EVENTS = [
@@ -20,7 +21,7 @@ const BASE_HISTORICAL_EVENTS = [
     date: '2023-08-14',
     status: 'Resolved',
     description: 'Heavy rainfall triggered a landslide, blocking one lane. Clearance work completed by BRO.',
-    thumbnail: 'https://images.unsplash.com/photo-1542332213-9b5a5a3fad35?auto=format&fit=crop&w=500&q=80',
+    thumbnail: LANDSLIDE_PHOTOS.roadBuried,
     agency: 'Border Roads Organisation (BRO)',
     clearanceHours: 12,
   },
@@ -35,7 +36,7 @@ const BASE_HISTORICAL_EVENTS = [
     date: '2023-09-02',
     status: 'Under Review',
     description: 'Portion of the road collapsed due to heavy rain. Temporary diversion created for light vehicles.',
-    thumbnail: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=500&q=80',
+    thumbnail: LANDSLIDE_PHOTOS.roadEdgeCollapsed,
     agency: 'PWD Uttarakhand',
     clearanceHours: 24,
   },
@@ -50,7 +51,7 @@ const BASE_HISTORICAL_EVENTS = [
     date: '2023-09-15',
     status: 'Closed',
     description: 'Bus and car collision due to low visibility. 3 minor injuries reported. Traffic restored after 2 hours.',
-    thumbnail: 'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=500&q=80',
+    thumbnail: LANDSLIDE_PHOTOS.bouldersAcrossHighway,
     agency: 'Uttarakhand Highway Police',
     clearanceHours: 2,
   },
@@ -65,7 +66,7 @@ const BASE_HISTORICAL_EVENTS = [
     date: '2023-07-25',
     status: 'Resolved',
     description: 'Road submerged due to heavy rainfall. Water level reduced after 6 hours.',
-    thumbnail: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=500&q=80',
+    thumbnail: LANDSLIDE_PHOTOS.mudslide,
     agency: 'State Disaster Management Authority (SDMA)',
     clearanceHours: 6,
   },
@@ -80,7 +81,7 @@ const BASE_HISTORICAL_EVENTS = [
     date: '2023-07-18',
     status: 'Resolved',
     description: 'Continuous rolling boulders on highway during peak monsoon showers. Bulldozers cleared passage overnight.',
-    thumbnail: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=500&q=80',
+    thumbnail: LANDSLIDE_PHOTOS.rockfallCutSlope,
     agency: 'BRO 21 BRTF',
     clearanceHours: 14,
   },
@@ -95,7 +96,7 @@ const BASE_HISTORICAL_EVENTS = [
     date: '2023-06-12',
     status: 'Closed',
     description: 'Hill cutting and retaining wall reinforcement as part of Chardham highway widening. One-way traffic enforced.',
-    thumbnail: 'https://images.unsplash.com/photo-1508873696983-2df5293cb32f?auto=format&fit=crop&w=500&q=80',
+    thumbnail: LANDSLIDE_PHOTOS.clearingByHand,
     agency: 'NHAI / MoRTH',
     clearanceHours: 48,
   },
@@ -110,7 +111,7 @@ const BASE_HISTORICAL_EVENTS = [
     date: '2023-08-04',
     status: 'Resolved',
     description: 'Major slope destabilization near Tangani village following continuous cloudburst precipitation.',
-    thumbnail: 'https://images.unsplash.com/photo-1486870591958-9b9d0d1dda99?auto=format&fit=crop&w=500&q=80',
+    thumbnail: LANDSLIDE_PHOTOS.roadWashedOut,
     agency: 'BRO / District Administration',
     clearanceHours: 18,
   },
@@ -125,7 +126,7 @@ const BASE_HISTORICAL_EVENTS = [
     date: '2023-09-28',
     status: 'Resolved',
     description: 'Heavy goods vehicle axle failure blocked narrow mountain curve. Tow truck cleared route in 90 minutes.',
-    thumbnail: 'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?auto=format&fit=crop&w=500&q=80',
+    thumbnail: LANDSLIDE_PHOTOS.bouldersMountainRoad,
     agency: 'Rudraprayag Police',
     clearanceHours: 2,
   },
@@ -174,9 +175,7 @@ export const PastEvents = () => {
               date: h.event_date || '2023-07-01',
               status: 'Resolved',
               description: h.description,
-              thumbnail: idx % 2 === 0
-                ? 'https://images.unsplash.com/photo-1542332213-9b5a5a3fad35?auto=format&fit=crop&w=500&q=80'
-                : 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=500&q=80',
+              thumbnail: landslidePhoto(idx + 8),
               agency: 'BRO / District Administration',
               coords: [h.lat, h.lng],
               clearanceHours: 24,
@@ -212,7 +211,7 @@ export const PastEvents = () => {
               date: dateStr,
               status: r.status === 'verified' ? 'Resolved' : (r.status === 'pending' ? 'Under Review' : 'Closed'),
               description: r.description,
-              thumbnail: r.photo_url || 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=500&q=80',
+              thumbnail: r.photo_url || photoForDescription(r.description, idx),
               agency: r.reporter_name ? `Reported by ${r.reporter_name}` : 'Field Monitor',
               coords: [r.lat, r.lng],
               clearanceHours: 8,

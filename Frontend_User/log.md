@@ -195,3 +195,14 @@ Each entry records **When** (IST), **Who**, **What**, **Why**, **How**, and the 
 - **How:** Removed the BRO entry from this site's `src/domain/helplines.ts`. The app's copy (`App/src/domain/helplines.ts`)
   is unchanged. Checked in the browser: the page shows the four helplines and no "[number to confirm]".
 - **Files:** `src/domain/helplines.ts`, `log.md`
+
+### WEB-007 — Recent reports show the real landslide photos
+- **When:** 2026-10-24 09:47 IST
+- **Who:** Claude Code for Aakash ("change the mock pics … to these real landslide pics")
+- **What:** The sample reports in Recent reports now show real landslide photos instead of Unsplash stock images.
+  The photos and the data change are in the backend (root `log.md` L-049).
+- **How:** The backend now returns the sample photos as `http://<backend>/static/landslides/<name>.jpg`.
+  `photoSrc()` loads those through the dev/preview proxy as `/api/static/landslides/<name>.jpg`, as it already does
+  for `/report-photos/`.
+- **Checked:** in the browser, the three sample reports show their photos. `tsc -b` clean.
+- **Files:** `src/api/client.ts`, `log.md`
