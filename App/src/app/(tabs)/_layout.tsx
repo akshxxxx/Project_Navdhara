@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Txt } from '@/components/ui';
+import { useI18n } from '@/i18n';
 import { colors } from '@/theme/tokens';
 
 const TABS: { name: string; title: string; icon: LucideIcon }[] = [
@@ -38,6 +39,7 @@ function TabBar({
   navigate: (routeKey: string) => void;
 }) {
   const insets = useSafeAreaInsets();
+  const { t } = useI18n();
   return (
     <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
       {routes.map((r, i) => {
@@ -50,7 +52,7 @@ function TabBar({
             key={r.key}
             accessibilityRole="tab"
             accessibilityState={{ selected: active }}
-            accessibilityLabel={tab.title}
+            accessibilityLabel={t(tab.title)}
             onPress={() => navigate(r.key)}
             style={styles.item}>
             <View style={[styles.iconWrap, active && { backgroundColor: colors.yellowSoft }]}>
@@ -61,7 +63,7 @@ function TabBar({
               color={active ? colors.ink : colors.inkMuted}
               numberOfLines={1}
               style={{ fontSize: 12 }}>
-              {tab.title}
+              {t(tab.title)}
             </Txt>
           </Pressable>
         );

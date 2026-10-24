@@ -50,6 +50,8 @@ data/*.sqlite3
 data/*.bak
 dem_cache/
 **/dem_cache/
+# Travellers' report photos (log.md L-048): user uploads, never committed
+Backend/data/report_photos/
 model/nhess-24-3207-2024-supplement_2.zip
 *.zip
 

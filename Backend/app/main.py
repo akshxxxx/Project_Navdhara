@@ -119,6 +119,11 @@ STATIC_DIR = Path(__file__).resolve().parent / "static"
 if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
+# Field report photos uploaded through POST /field-report/photo (log.md L-048)
+from app.routes.reports import PHOTO_DIR, PHOTO_URL_PREFIX
+PHOTO_DIR.mkdir(parents=True, exist_ok=True)
+app.mount(PHOTO_URL_PREFIX, StaticFiles(directory=str(PHOTO_DIR)), name="report_photos")
+
 # 5. Include Routers
 app.include_router(risk_router)
 app.include_router(subscriptions_router)

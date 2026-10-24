@@ -105,6 +105,7 @@ export interface FieldReport {
   reporter_name: string;
   status: 'pending' | 'verified' | 'rejected' | string;
   created_at: string;
+  photo_url?: string | null;
 }
 
 export interface FieldReportCreated {

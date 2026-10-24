@@ -2,6 +2,7 @@ import { Check, X } from 'lucide-react-native';
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useI18n } from '@/i18n';
 import { colors, radius } from '@/theme/tokens';
 
 import { Txt } from './ui';
@@ -29,15 +30,16 @@ export function PickerSheet({
   onClose: () => void;
 }) {
   const insets = useSafeAreaInsets();
+  const { t } = useI18n();
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close" />
+      <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel={t('Close')} />
       <View style={[styles.sheet, { paddingBottom: insets.bottom + 12 }]}>
         <View style={styles.head}>
           <Txt variant="h2" style={{ flex: 1 }}>
             {title}
           </Txt>
-          <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close">
+          <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button" accessibilityLabel={t('Close')}>
             <X size={28} color={colors.ink} />
           </Pressable>
         </View>

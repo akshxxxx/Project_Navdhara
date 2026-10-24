@@ -5,7 +5,7 @@ import secrets
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, Depends, File, Header, HTTPException, Request, UploadFile, status
 from shapely.geometry import Point, LineString
 
 from app import config
@@ -87,6 +87,47 @@ def verify_admin_key(
 
     logger.warning(f"ADMIN_API_KEY unset and non-localhost request from {client_ip}. Rejecting.")
     raise HTTPException(status_code=401, detail="Admin access requires X-API-Key header or localhost in development mode.")
+
+# --- Report photos (log.md L-048) ---
+# A traveller's photo is uploaded first; the returned URL then goes in the report's photo_url.
+# Only real JPEG/PNG files (checked by their first bytes, not the declared type), at most 3 MB,
+# stored under a random name. The app re-encodes photos before upload, which also drops GPS EXIF.
+PHOTO_DIR = BASE_DIR / "data" / "report_photos"
+PHOTO_URL_PREFIX = "/report-photos"
+MAX_PHOTO_BYTES = 3 * 1024 * 1024
+_PHOTO_SIGNATURES = {b"\xff\xd8\xff": "jpg", b"\x89PNG\r\n\x1a\n": "png"}
+
+
+def _photo_extension(head: bytes) -> Optional[str]:
+    for magic, ext in _PHOTO_SIGNATURES.items():
+        if head.startswith(magic):
+            return ext
+    return None
+
+
+@router.post("/field-report/photo", status_code=status.HTTP_201_CREATED)
+@limiter.limit("10/minute")
+async def upload_report_photo(request: Request, photo: UploadFile = File(...)):
+    """
+    Stores one photo for a field report and returns {"photo_url"} to send with POST /field-report.
+    415 if it is not a JPEG or PNG, 413 if it is larger than 3 MB.
+    """
+    data = await photo.read(MAX_PHOTO_BYTES + 1)
+    if len(data) > MAX_PHOTO_BYTES:
+        raise HTTPException(status_code=413, detail="Photo is larger than 3 MB.")
+    ext = _photo_extension(data[:8])
+    if not ext:
+        raise HTTPException(status_code=415, detail="Photo must be a JPEG or PNG image.")
+
+    PHOTO_DIR.mkdir(parents=True, exist_ok=True)
+    name = f"{secrets.token_hex(12)}.{ext}"
+    (PHOTO_DIR / name).write_bytes(data)
+    client_ip = request.client.host if request.client else "unknown"
+    logger.info(f"Report photo {name} stored ({len(data)} bytes) from {client_ip}")
+    # Absolute URL built from the address the client used, so phones on the LAN can load it back
+    photo_url = f"{str(request.base_url).rstrip('/')}{PHOTO_URL_PREFIX}/{name}"
+    return {"photo_url": photo_url, "bytes": len(data)}
+
 
 @router.post("/field-report", response_model=FieldReportResponse, status_code=status.HTTP_201_CREATED)
 @limiter.limit("5/minute")

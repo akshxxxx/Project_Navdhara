@@ -24,4 +24,7 @@ export const KEYS = {
   offlinePack: 'raah.cache.offline-pack.v1',
   myReports: 'raah.my-reports.v1',
   apiUrl: 'raah.api-url.v1',
+  lang: 'raah.lang.v1',
+  contacts: 'raah.contacts.v1',
+  mapStyle: 'raah.map-style.v1',
 } as const;

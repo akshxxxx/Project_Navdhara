@@ -5,6 +5,7 @@ import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, TextInput
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { api, AUTO_API_URL, getApiUrl, normaliseApiUrl, setApiUrl } from '@/api/client';
+import { useI18n } from '@/i18n';
 import { colors, fonts, radius } from '@/theme/tokens';
 
 import { Button, Notice, Txt } from './ui';
@@ -17,6 +18,7 @@ type Check = { state: 'idle' } | { state: 'testing' } | { state: 'ok'; url: stri
  */
 export function ServerSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const insets = useSafeAreaInsets();
+  const { t } = useI18n();
   const queryClient = useQueryClient();
   const [text, setText] = useState(getApiUrl());
   const [check, setCheck] = useState<Check>({ state: 'idle' });
@@ -24,7 +26,7 @@ export function ServerSheet({ visible, onClose }: { visible: boolean; onClose: (
   const test = async (): Promise<string | null> => {
     const url = normaliseApiUrl(text);
     if (!url) {
-      setCheck({ state: 'fail', msg: 'That does not look like an address. Example: 192.168.1.15:8000' });
+      setCheck({ state: 'fail', msg: t('That does not look like an address. Example: 192.168.1.15:8000') });
       return null;
     }
     setCheck({ state: 'testing' });
@@ -35,7 +37,10 @@ export function ServerSheet({ visible, onClose }: { visible: boolean; onClose: (
     } catch {
       setCheck({
         state: 'fail',
-        msg: `No answer from ${url}. Check that the backend is running (python run.py), that this phone is on the same Wi-Fi as the laptop, and that the address matches the "Team LAN URL" the backend prints.`,
+        msg: t(
+          'No answer from {url}. Check that the backend is running (python run.py), that this phone is on the same Wi-Fi as the laptop, and that the address matches the "Team LAN URL" the backend prints.',
+          { url },
+        ),
       });
       return null;
     }
@@ -50,20 +55,20 @@ export function ServerSheet({ visible, onClose }: { visible: boolean; onClose: (
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close" />
+      <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel={t('Close')} />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
           <View style={styles.head}>
             <Server size={22} color={colors.ink} />
             <Txt variant="h2" style={{ flex: 1 }}>
-              Server address
+              {t('Server address')}
             </Txt>
-            <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close">
+            <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button" accessibilityLabel={t('Close')}>
               <X size={24} color={colors.ink} />
             </Pressable>
           </View>
           <Txt color={colors.inkMuted}>
-            The address of the Raah backend. On the laptop, python run.py prints it as the “Team LAN URL”.
+            {t('The address of the Raah backend. On the laptop, python run.py prints it as the “Team LAN URL”.')}
           </Txt>
           <TextInput
             value={text}
@@ -77,27 +82,29 @@ export function ServerSheet({ visible, onClose }: { visible: boolean; onClose: (
             placeholder="192.168.1.15:8000"
             placeholderTextColor={colors.inkFaint}
             style={styles.input}
-            accessibilityLabel="Server address"
+            accessibilityLabel={t('Server address')}
           />
           <Txt variant="small" color={colors.inkMuted}>
-            Automatic: {AUTO_API_URL}
+            {t('Automatic: {url}', { url: AUTO_API_URL })}
           </Txt>
-          {check.state === 'ok' ? <Notice tone="ok" icon={CircleCheck} title={`Connected to ${check.url}`} /> : null}
+          {check.state === 'ok' ? (
+            <Notice tone="ok" icon={CircleCheck} title={t('Connected to {url}', { url: check.url })} />
+          ) : null}
           {check.state === 'fail' ? (
-            <Notice tone="error" icon={TriangleAlert} title="Not connected" body={check.msg} />
+            <Notice tone="error" icon={TriangleAlert} title={t('Not connected')} body={check.msg} />
           ) : null}
           <View style={styles.row}>
             <Button
               kind="outline"
               compact
-              label="Test"
+              label={t('Test')}
               loading={check.state === 'testing'}
               onPress={test}
               style={{ flex: 1 }}
             />
             <Button
               compact
-              label="Save and reload"
+              label={t('Save and reload')}
               onPress={async () => {
                 const url = await test();
                 if (url) await save(url === AUTO_API_URL ? null : url);
@@ -105,7 +112,7 @@ export function ServerSheet({ visible, onClose }: { visible: boolean; onClose: (
               style={{ flex: 1.4 }}
             />
           </View>
-          <Button kind="ghost" compact label="Use the automatic address" onPress={() => save(null)} />
+          <Button kind="ghost" compact label={t('Use the automatic address')} onPress={() => save(null)} />
         </View>
       </KeyboardAvoidingView>
     </Modal>

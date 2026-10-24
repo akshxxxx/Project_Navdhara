@@ -293,3 +293,204 @@ Each entry records **When** (IST), **Who**, **What**, **Why**, **How**, and the 
   Srinagar), all three styles load, the style sheet opens and closes, nothing shifts, and the stretch page map
   uses the same style. `npx tsc --noEmit` and `npx eslint src` pass. **Not yet checked on the phone.**
 - **Files:** `src/components/CorridorMap.tsx`, `src/app/(tabs)/index.tsx`, `src/components/DetailShell.tsx`
+
+### APP-016 — Standalone release APK built and installed on a phone
+- **When:** 2026-10-24 03:42 IST
+- **Who:** Claude Code for Aakash (local SDK installs and the build route approved by Aakash in chat; the
+  Windows setting changed by Aakash)
+- **What:** Built `android/app/build/outputs/apk/release/app-release.apk` (34.7 MB, arm64-v8a, signed with
+  the debug keystore, so for sideloading only, not for the Play Store) and installed it over USB with
+  `adb install -r` on a Realme RMX3840 (Android, arm64). It starts and runs with no crash in logcat.
+  Package `org.raah.nh7`, app name Raah.
+- **Why:** Aakash asked for the app installed as an APK on the connected phone, not run through Expo Go.
+- **How:**
+  1. `app.json`: added the `expo-build-properties` plugin with `android.usesCleartextTraffic: true`. Release
+     builds block plain `http://` by default, and the backend runs on `http://<laptop>:8000`.
+  2. The backend address is baked in at build time with `EXPO_PUBLIC_API_URL=http://172.168.11.111:8000`
+     (this laptop's Wi-Fi address on 2026-10-24). A standalone APK has no Expo server to take the address
+     from. If the laptop's address changes, set it in the app (tap the Live / Offline / Demo pill on the Map
+     → Server address); no rebuild is needed.
+  3. `android/` already existed (generated at 02:06 and open in Android Studio, which locked it), so
+     `expo prebuild` could not regenerate it. The cleartext flag was added by hand to
+     `android/app/src/main/AndroidManifest.xml`. The folder is generated and git-ignored; the plugin in
+     `app.json` makes the next prebuild produce the same setting.
+  4. Built with `gradlew.bat assembleRelease -PreactNativeArchitectures=arm64-v8a`, using JDK 17
+     (`C:\Program Files\Microsoft\jdk-17.0.20.101-hotspot`; the default Java 27 is too new for Gradle).
+  5. Problems fixed on the way:
+     - `android/local.properties` had been written with single backslashes, which properties files treat
+       as escapes. It now uses forward slashes. This was my mistake earlier in this session.
+     - Every NDK folder in the SDK was an empty leftover from an interrupted install. Installed
+       `ndk/27.1.12297006` and `cmake/3.31.6` with the SDK's new `android sdk install` CLI (`sdkmanager.bat`
+       now forwards to it, and splits `ndk;…` at the semicolon).
+     - The C++ build failed on Windows' 260-character path limit (paths under
+       `node_modules\react-native-gesture-handler\…`). Aakash turned on `LongPathsEnabled` (admin).
+       `local.properties` now sets `cmake.dir` to CMake 3.31.6, whose ninja 1.12 handles long paths.
+- **Outside `App/` (machine setup, not repository files):** Android SDK gained NDK 27.1.12297006 and CMake
+  3.22.1 and 3.31.6; Windows `LongPathsEnabled` is now 1.
+- **To rebuild later** (from `App/android`, in PowerShell, with `JAVA_HOME` set to JDK 17 and
+  `EXPO_PUBLIC_API_URL` set): `.\gradlew.bat assembleRelease -PreactNativeArchitectures=arm64-v8a`, then
+  `adb install -r app\build\outputs\apk\release\app-release.apk`. After the first build only changed parts
+  rebuild.
+- **Files:** `app.json`, `package.json`, `package-lock.json` (expo-build-properties),
+  `android/app/src/main/AndroidManifest.xml` and `android/local.properties` (generated, git-ignored)
+
+### APP-017 — Smoother map: gestures and fly-to no longer redraw every frame
+- **When:** 2026-10-24 04:40 IST
+- **Who:** Claude Code for Aakash
+- **What:** The map felt laggy on the phone. Every drag, pinch, zoom-button press and fly-to used to rebuild
+  the whole SVG (18 stretches, about 4,800 path points, town labels) and re-place every map tile, frame by
+  frame, from JavaScript.
+  Now one layer holds the tiles and the road, and it is moved and scaled with a native transform
+  (`Animated`, native driver on the phone) while a finger moves or the map flies. Nothing is redrawn until
+  the movement ends; then the road and tiles are drawn once for the new view and the transform resets. The
+  road and tiles are drawn 220 px past each edge, so a drag does not show empty borders straight away.
+- **Why:** Aakash reported the app, the map above all, as laggy on the phone.
+- **How:** `viewAfter()` and `xformTo()` in `CorridorMap.tsx` convert between "drawn view plus transform" and
+  "the view on screen". The transform scales around the centre of the map box, while the drawing is centred
+  between the overlays. Pan and pinch update the transform from `PanResponder` without a React render. Zoom
+  buttons and fly-to use `Animated.timing`. A gesture that starts mid-animation stops it and continues from
+  where it is. The reset after a redraw happens in a layout effect, so the old transform never shows over the
+  new drawing. On the web the map box clips with `overflow: clip`, so the margin does not make it scrollable.
+- **Checked (web, 360 × 800):** a drag moves the road and redraws once on release, with the transform back to
+  identity. During a zoom-button animation only the transform changes (geometry untouched at scale 1.27); the
+  redrawn position matches the end of the animation to about 1 px.
+- **Files:** `src/components/CorridorMap.tsx`
+
+### APP-018 — Hindi / English language option
+- **When:** 2026-10-24 04:45 IST
+- **Who:** Claude Code for Aakash
+- **What:** Every page can be shown in Hindi or English. A **हिंदी / EN** button in every page header (and on
+  the Map's header card) switches with one tap, and the choice is remembered on the phone. In Hindi:
+  - all text, buttons, alerts, tips, errors and the spoken **Listen** advice (uses the phone's Hindi voice,
+    `hi-IN`) are in Hindi;
+  - town and stretch names are in Devanagari (ऋषिकेश से शिवपुरी), on the map too;
+  - dates and times read सोम, 24 अक्टू, रात 9:05;
+  - the trip planner asks the backend for its explanation in Hindi (`lang: 'hi'`);
+  - text uses IBM Plex Sans Devanagari, with a little more line height and no letter spacing (spacing breaks
+    joined Devanagari letters).
+- **Why:** Aakash asked for a Hindi or English option. Many NH-7 drivers and pilgrims read Hindi first.
+- **How:** `src/i18n/index.tsx` is a small translation layer: the English text is the key, `t()` and `tr()`
+  look it up in `src/i18n/hi.ts`, and a missing entry falls back to English. All 349 strings in the app have a
+  Hindi entry (a script lists any that are missing). `Txt` switches the font itself. Report types are still
+  stored in English inside the report text (`[Falling stones] km 114: …`), so the web dashboard reads them
+  the same; only the display is translated. Numbers stay in Latin digits, as on road signs.
+- **Note:** the Hindi was written for this app and has not been reviewed by a native speaker yet. Worth a read
+  before the demo.
+- **Files:** `src/i18n/index.tsx`, `src/i18n/hi.ts` (new), `src/app/_layout.tsx`, every screen in `src/app/`,
+  `src/components/*.tsx`, `src/domain/levels.ts`, `src/domain/stretch.ts`, `src/domain/time.ts`,
+  `src/api/client.ts`, `src/api/hooks.ts`, `src/api/storage.ts`, `package.json` (Devanagari font)
+
+### APP-019 — My emergency contacts
+- **When:** 2026-10-24 04:50 IST
+- **Who:** Claude Code for Aakash
+- **What:** The Emergency tab has a new **My emergency contacts** card, right under Call 112. A traveller adds
+  up to 8 people (name, phone, Family / Friend / Hotel or driver / Other). Each contact has **Call**,
+  **Send my location** and **Remove** (with a confirm step). With two or more there is also **Send my location
+  to all**. The message names the place on NH-7 ("I am on NH-7 near Sirobagarh, km 114") and adds a Google
+  Maps link from GPS. Without GPS it says "I am travelling on NH-7 and may need help. Please call me."
+- **Why:** Aakash asked to add emergency contacts. These are the person's own people, alongside the official
+  helplines, whose numbers are still unconfirmed.
+- **How:** Contacts are kept only on the phone (AsyncStorage, `raah.contacts.v1`); nothing goes to the
+  server. Messages open the phone's SMS app with the text filled in, and the person presses Send; the app never
+  sends anything by itself. Phone numbers are cleaned to digits and checked for 10–13 digits.
+- **Checked (web):** add (in Hindi), the number cleaned to `9876543210`, the row with its buttons, remove with
+  confirm, storage emptied. SMS and calling need a real phone.
+- **Files:** `src/domain/contacts.ts`, `src/components/MyContacts.tsx` (new), `src/app/(tabs)/emergency.tsx`
+
+### APP-020 — Updated APK installed on a second phone
+- **When:** 2026-10-24 05:09 IST
+- **Who:** Claude Code for Aakash
+- **What:** Rebuilt the release APK with APP-017 to APP-019 (35.8 MB, arm64-v8a; the incremental build took 5
+  min) and installed it with `adb install -r` on a Xiaomi 22101320I. It launches with no crash in logcat and
+  shows live data from the backend at `172.168.11.111:8000`, with the mountain-terrain tiles.
+- **Not yet checked on the phone:** how smooth pinch and drag feel, the Hindi voice, and SMS or calling from
+  My emergency contacts.
+- **Files:** none (build output only, `android/app/build/outputs/apk/release/app-release.apk`)
+
+### APP-021 — Satellite by default; the Needs attention panel slides down for a full-screen map
+- **When:** 2026-10-24 05:40 IST
+- **Who:** Claude Code for Aakash
+- **What:**
+  1. **Satellite is the default map style** (Aakash's request). A style picked from Map style is now
+     remembered on the phone (`raah.map-style.v1`), not just for the session.
+  2. **The map fills the whole screen.** "Needs attention today" is now a panel over the map. Drag it down
+     (or tap its title bar or arrow) and only the title stays, about 70 px; drag it up or tap again to bring
+     it back. Each time it moves, the map refits to the space it has and the zoom buttons move with it. The
+     colour legend rides on top of the panel so it is never hidden.
+- **How:** The panel moves with an `Animated` translate (native driver on the phone) and snaps open or closed
+  by position and swipe speed. Vertical drags are claimed in the capture phase, so a drag that starts on the
+  title bar or a card still moves the panel; sideways swipes still scroll the cards. The map gets the
+  panel's visible height as its bottom inset.
+- **Checked:** in the browser at 360 × 800, satellite loads by default; tapping the title collapses the panel
+  (only the 66 px title stays, the buttons move down, the map refits) and tapping again opens it. Drags could
+  not be tested in this browser session: its drag tool sent a press and one move but no release. The swipe
+  gesture still needs checking on a phone (`adb shell input swipe`). APK rebuilt (35.8 MB); not installed
+  yet, because the phone was disconnected.
+- **Files:** `src/app/(tabs)/index.tsx`, `src/components/CorridorMap.tsx`, `src/app/_layout.tsx`,
+  `src/api/storage.ts`, `src/i18n/hi.ts`
+
+### APP-022 — APP-021 installed on the Xiaomi; swipe not tested by machine
+- **When:** 2026-10-24 05:28 IST
+- **Who:** Claude Code for Aakash
+- **What:** Installed the APP-021 APK on the Xiaomi 22101320I. It opens in satellite view, and the collapsed
+  panel looks right: only the "Needs attention today" title bar shows, and the legend and zoom buttons sit
+  just above it. The panel had been collapsed by `adb shell monkey`'s one random tap, which landed on the
+  title bar.
+- **Not tested:** the swipe itself. `adb shell input swipe` is refused on this phone (`SecurityException:
+  … INJECT_EVENTS permission`). MIUI only allows injected touches with Developer options → "USB debugging
+  (Security settings)" turned on. That is the owner's security setting, so it was left as it is. The swipe
+  needs a person to try it on the phone.
+- **Files:** none
+
+### APP-023 — Checked helpline numbers on Emergency; photos on reports (camera or gallery)
+- **When:** 2026-10-24 05:45 IST
+- **Who:** Claude Code for Aakash ("add emergency number and in report section allow user to capture photo or
+  upload photo")
+- **What:**
+  1. **Helpline numbers on Emergency.** Under Call 112 there is now a list of helplines, each with what it is
+     for and a Call button:
+     - SDMA Uttarakhand control room **1070** (landline 0135-2710334): landslides, floods, rescue
+       (source: usdma.uk.gov.in);
+     - District disaster control room **1077**: road blocked, road status, local rescue (usdma.uk.gov.in);
+     - National Highway helpline **1033**: accidents, crane, help on the highway (NHAI / MoRTH);
+     - Ambulance **108**, free (nhm.uk.gov.in);
+     - BRO control room: no public number was found, so it shows "[number to confirm]".
+     A note says when the numbers were checked (24 Oct 2026). If the backend's offline pack ever sends a
+     number for one of these, the server's number wins.
+  2. **Photos on reports.** The Send report form has an optional "Add a photo" step with **Take photo** and
+     **From gallery**. The photo shows as a preview with an X to remove it. Recent reports show the photo
+     with each report that has one.
+- **Why:** the Emergency page only had 112; the other numbers had been left blank because nobody had checked
+  them. Officials asked for photos so they can judge a report before verifying it.
+- **How:**
+  - `domain/helplines.ts` holds the checked numbers and the date; `emergency.tsx` matches backend contacts to
+    them by name.
+  - `domain/photo.ts` asks for camera or gallery permission, opens the picker, shrinks the photo to at most
+    1600 px on its longest side and re-saves it as JPEG (quality 0.7). Re-saving drops the file's EXIF data,
+    including the GPS position, which the form tells the user.
+  - On Send, the photo is uploaded first (`POST /field-report/photo`, 30 s timeout) and the returned
+    `photo_url` goes with the report. If the server has no photo endpoint (404/405) or refuses the photo
+    (413/415), the report is still sent and the "Report sent" banner says it went without the photo.
+  - `expo-image-picker` and `expo-image-manipulator` added; `app.json` declares the camera and photo
+    permission texts (no microphone). All new text is in Hindi too.
+  - The backend endpoint was added with Aakash's approval; see root `log.md` L-048.
+- **Checked:** `tsc` and ESLint clean; Hindi checker shows no missing keys. Helplines render on web at
+  360 × 800. APK rebuilt (36.0 MB), installed on the Xiaomi 22101320I and launched: no crash, satellite map,
+  live data; the APK declares the CAMERA permission.
+- **Not yet checked on the phone:** taking or picking a photo, the permission prompts, and sending a report
+  with a photo to the backend. Touch input from the laptop is blocked on this phone (APP-022), so this needs
+  a person.
+- **Files:** `src/domain/helplines.ts`, `src/domain/photo.ts` (new), `src/app/(tabs)/emergency.tsx`,
+  `src/app/(tabs)/reports.tsx`, `src/api/client.ts`, `src/api/types.ts`, `src/i18n/hi.ts`, `app.json`,
+  `package.json`, `package-lock.json`
+
+### APP-024 — BRO control room removed from Emergency
+- **When:** 2026-10-24 05:55 IST
+- **Who:** Claude Code for Aakash ("From emergency section remove Bro control room box")
+- **What:** The Emergency helpline list no longer has the "BRO control room" box. It had no checked number and
+  only showed "[number to confirm]" (APP-023). The list is now SDMA 1070, District 1077, National Highway
+  1033 and Ambulance 108. The advice that mentions BRO ("wait for BRO or police to clear it") is unchanged.
+- **How:** Removed the BRO entry from `HELPLINES` and its two now-unused Hindi strings. A BRO contact sent by
+  the backend's offline pack is not shown either, because the screen only lists the lines in `HELPLINES`.
+- **Checked:** `tsc` and ESLint clean; Hindi checker shows no missing keys.
+- **Files:** `src/domain/helplines.ts`, `src/i18n/hi.ts`

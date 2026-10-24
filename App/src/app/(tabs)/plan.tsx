@@ -8,6 +8,7 @@ import { PickerSheet, type PickerOption } from '@/components/PickerSheet';
 import { Button, Card, Disclaimer, Notice, SectionTitle, Txt } from '@/components/ui';
 import { routeSegments, townByName, TOWNS } from '@/domain/corridor';
 import { addDays, clock24, dayLabel, istDateKey, nextHourIst } from '@/domain/time';
+import { townName, useI18n } from '@/i18n';
 import { colors, radius, shadow } from '@/theme/tokens';
 
 const POPULAR: [string, string, string?][] = [
@@ -24,6 +25,7 @@ type PickerKind = 'from' | 'to' | 'date' | 'time' | null;
 
 export default function PlanScreen() {
   const params = useLocalSearchParams<{ from?: string; to?: string }>();
+  const { t } = useI18n();
   const defaults = useMemo(() => nextHourIst(), []);
   const [from, setFrom] = useState('Rishikesh');
   const [to, setTo] = useState('Joshimath');
@@ -46,22 +48,22 @@ export default function PlanScreen() {
     const key = addDays(today, n);
     return {
       value: key,
-      label: `${['Today', 'Tomorrow', 'Day after'][n]} · ${dayLabel(key)}`,
-      hint: n === 2 ? 'Past the rain forecast: risk uses terrain only' : 'Uses the hourly rain forecast',
+      label: `${t(['Today', 'Tomorrow', 'Day after'][n])} · ${dayLabel(key)}`,
+      hint: n === 2 ? t('Past the rain forecast: risk uses terrain only') : t('Uses the hourly rain forecast'),
     };
   });
   const now = nextHourIst();
   const timeOptions: PickerOption[] = Array.from({ length: 48 }, (_, i) => {
-    const t = `${String(Math.floor(i / 2)).padStart(2, '0')}:${i % 2 ? '30' : '00'}`;
-    return { value: t, label: t };
+    const hm = `${String(Math.floor(i / 2)).padStart(2, '0')}:${i % 2 ? '30' : '00'}`;
+    return { value: hm, label: hm };
   }).filter((o) => date !== today || o.value >= now.time);
 
-  const check = (f = from, t = to) => {
-    if (f === t) {
+  const check = (f = from, dest = to) => {
+    if (f === dest) {
       setError('From and To are the same town. Pick two different towns.');
       return;
     }
-    if (!routeSegments(f, t)) {
+    if (!routeSegments(f, dest)) {
       setError('This route is not on the NH-7 corridor.');
       return;
     }
@@ -76,37 +78,42 @@ export default function PlanScreen() {
       setDate(d);
       setTime(tm);
     }
-    router.push({ pathname: '/plan-result', params: { from: f, to: t, date: d, time: tm } });
+    router.push({ pathname: '/plan-result', params: { from: f, to: dest, date: d, time: tm } });
   };
 
   const townOptions = (exclude: string): PickerOption[] =>
-    TOWNS.filter((t) => t.name !== exclude).map((t) => ({
-      value: t.name,
-      label: t.name,
-      hint: `NH-7 km ${Math.round(t.km)}`,
+    TOWNS.filter((tw) => tw.name !== exclude).map((tw) => ({
+      value: tw.name,
+      label: townName(tw.name),
+      hint: `NH-7 km ${Math.round(tw.km)}`,
     }));
 
   return (
     <View style={{ flex: 1 }}>
-      <AppHeader title="Plan trip" />
+      <AppHeader title={t('Plan trip')} />
       <ScrollView contentContainerStyle={styles.body}>
         <Txt color={colors.inkMuted} style={{ fontSize: 14, lineHeight: 21 }}>
-          Check your trip before you leave. Raah checks each stretch for the hour you will reach it.
+          {t('Check your trip before you leave. Raah checks each stretch for the hour you will reach it.')}
         </Txt>
 
         <Card style={[styles.form, shadow.card]}>
           <View>
-            <Field icon={<View style={styles.fromDot} />} label="From" value={from} onPress={() => setPicker('from')} />
+            <Field
+              icon={<View style={styles.fromDot} />}
+              label={t('From')}
+              value={townName(from)}
+              onPress={() => setPicker('from')}
+            />
             <View style={{ height: 14 }} />
             <Field
               icon={<MapPin size={22} color={colors.redDeep} fill={colors.redDeep} />}
-              label="To"
-              value={to}
+              label={t('To')}
+              value={townName(to)}
               onPress={() => setPicker('to')}
             />
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Swap From and To"
+              accessibilityLabel={t('Swap From and To')}
               onPress={() => {
                 setFrom(to);
                 setTo(from);
@@ -118,24 +125,24 @@ export default function PlanScreen() {
           <View style={styles.row}>
             <Field
               icon={<CalendarDays size={24} color={colors.inkMuted} />}
-              label="Date"
+              label={t('Date')}
               value={dayLabel(date).replace(',', '')}
               onPress={() => setPicker('date')}
               style={{ flex: 1 }}
             />
             <Field
               icon={<Clock size={24} color={colors.inkMuted} />}
-              label="Leave at"
+              label={t('Leave at')}
               value={time}
               onPress={() => setPicker('time')}
               style={{ flex: 1 }}
             />
           </View>
-          {error ? <Notice tone="error" title={error} /> : null}
-          <Button label="Check route" icon={Search} onPress={() => check()} style={{ minHeight: 54 }} />
+          {error ? <Notice tone="error" title={t(error)} /> : null}
+          <Button label={t('Check route')} icon={Search} onPress={() => check()} style={{ minHeight: 54 }} />
         </Card>
 
-        <SectionTitle>Popular routes</SectionTitle>
+        <SectionTitle>{t('Popular routes')}</SectionTitle>
         <Card padded={false}>
           {POPULAR.map(([a, b, note], i) => (
             <Pressable
@@ -149,22 +156,23 @@ export default function PlanScreen() {
               style={({ pressed }) => [styles.popular, i > 0 && styles.popularBorder, pressed && { opacity: 0.7 }]}>
               <View style={{ flex: 1 }}>
                 <Txt variant="h3" style={{ fontSize: 17 }}>
-                  {a} → {b}
+                  {townName(a)} → {townName(b)}
                 </Txt>
                 <Txt color={colors.inkMuted}>
-                  {distance(a, b)} km{note ? ` · ${note}` : ''}
+                  {distance(a, b)} {t('km')}
+                  {note ? ` · ${t(note)}` : ''}
                 </Txt>
               </View>
               <ChevronRight size={24} color={colors.inkMuted} />
             </Pressable>
           ))}
         </Card>
-        <Disclaimer text="Raah never says a route is safe · Not an official warning · Emergency 112" />
+        <Disclaimer text={t('Raah never says a route is safe · Not an official warning · Emergency 112')} />
       </ScrollView>
 
       <PickerSheet
         visible={picker === 'from'}
-        title="From"
+        title={t('From')}
         options={townOptions(to)}
         value={from}
         onPick={setFrom}
@@ -172,7 +180,7 @@ export default function PlanScreen() {
       />
       <PickerSheet
         visible={picker === 'to'}
-        title="To"
+        title={t('To')}
         options={townOptions(from)}
         value={to}
         onPick={setTo}
@@ -180,7 +188,7 @@ export default function PlanScreen() {
       />
       <PickerSheet
         visible={picker === 'date'}
-        title="Travel date"
+        title={t('Travel date')}
         options={dateOptions}
         value={date}
         onPick={(d) => {
@@ -191,7 +199,7 @@ export default function PlanScreen() {
       />
       <PickerSheet
         visible={picker === 'time'}
-        title="Leave at"
+        title={t('Leave at')}
         options={timeOptions}
         value={time}
         onPick={setTime}
@@ -214,10 +222,11 @@ function Field({
   onPress: () => void;
   style?: object;
 }) {
+  const { t } = useI18n();
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${label}: ${value}. Change`}
+      accessibilityLabel={`${label}: ${value}. ${t('Change')}`}
       onPress={onPress}
       style={({ pressed }) => [styles.field, style, pressed && { borderColor: colors.navy }]}>
       <View style={{ width: 28, alignItems: 'center' }}>{icon}</View>

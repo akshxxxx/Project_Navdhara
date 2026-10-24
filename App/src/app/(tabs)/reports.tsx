@@ -1,9 +1,20 @@
 import { useQueryClient } from '@tanstack/react-query';
 import * as Location from 'expo-location';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Check, CircleCheck, Crosshair, MapPin, RefreshCw, Send, TriangleAlert } from 'lucide-react-native';
+import {
+  Camera,
+  Check,
+  CircleCheck,
+  Crosshair,
+  ImagePlus,
+  MapPin,
+  RefreshCw,
+  Send,
+  TriangleAlert,
+  X,
+} from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { ApiError, api, connectionHelp } from '@/api/client';
 import { useCorridor, useFieldReports } from '@/api/hooks';
@@ -15,9 +26,11 @@ import { Button, Card, Chip, Notice, Txt } from '@/components/ui';
 import { CORRIDOR_KM, nearestTown } from '@/domain/corridor';
 import { locateOnRoad, midpoint, pointAtKm } from '@/domain/geo';
 import { LEVELS } from '@/domain/levels';
+import { getReportPhoto, type PhotoSource, type ReportPhoto } from '@/domain/photo';
 import { encodeDescription, MAX_DESCRIPTION, parseDescription, REPORT_TYPES, type ReportType } from '@/domain/reports';
 import type { LatLng, Stretch } from '@/domain/stretch';
 import { relativeStamp } from '@/domain/time';
+import { fontFor, townName, useI18n } from '@/i18n';
 import { colors, fonts, radius } from '@/theme/tokens';
 
 interface Spot {
@@ -30,8 +43,10 @@ interface Spot {
 
 export default function ReportsScreen() {
   const params = useLocalSearchParams<{ stretch?: string; tab?: string }>();
+  const { t } = useI18n();
   const [tab, setTab] = useState<'send' | 'recent'>('send');
   const [sentId, setSentId] = useState<number | null>(null);
+  const [sentNote, setSentNote] = useState<string | null>(null);
   // "Report" from a stretch page opens the form
   const [seenStretch, setSeenStretch] = useState<string | undefined>(undefined);
   if (params.stretch !== seenStretch) {
@@ -41,17 +56,17 @@ export default function ReportsScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <AppHeader title="Reports" />
+      <AppHeader title={t('Reports')} />
       <View style={styles.segmented}>
-        {(['send', 'recent'] as const).map((t) => (
+        {(['send', 'recent'] as const).map((key) => (
           <Pressable
-            key={t}
+            key={key}
             accessibilityRole="tab"
-            accessibilityState={{ selected: tab === t }}
-            onPress={() => setTab(t)}
-            style={[styles.segment, tab === t && styles.segmentActive]}>
-            <Txt variant="bodyStrong" color={tab === t ? colors.ink : colors.inkMuted} style={{ fontSize: 14 }}>
-              {t === 'send' ? 'Send a report' : 'Recent reports'}
+            accessibilityState={{ selected: tab === key }}
+            onPress={() => setTab(key)}
+            style={[styles.segment, tab === key && styles.segmentActive]}>
+            <Txt variant="bodyStrong" color={tab === key ? colors.ink : colors.inkMuted} style={{ fontSize: 14 }}>
+              {key === 'send' ? t('Send a report') : t('Recent reports')}
             </Txt>
           </Pressable>
         ))}
@@ -59,20 +74,28 @@ export default function ReportsScreen() {
       {tab === 'send' ? (
         <SendReport
           presetStretch={params.stretch}
-          onSent={(id) => {
+          onSent={(id, note) => {
             setSentId(id);
+            setSentNote(note);
             setTab('recent');
           }}
         />
       ) : (
-        <RecentReports sentId={sentId} />
+        <RecentReports sentId={sentId} sentNote={sentNote} />
       )}
     </View>
   );
 }
 
-function SendReport({ presetStretch, onSent }: { presetStretch?: string; onSent: (id: number) => void }) {
+function SendReport({
+  presetStretch,
+  onSent,
+}: {
+  presetStretch?: string;
+  onSent: (id: number, note: string | null) => void;
+}) {
   const { corridor } = useCorridor();
+  const { t, lang } = useI18n();
   const queryClient = useQueryClient();
   const [type, setType] = useState<ReportType | null>(null);
   const [spot, setSpot] = useState<Spot | null>(null);
@@ -85,6 +108,26 @@ function SendReport({ presetStretch, onSent }: { presetStretch?: string; onSent:
   const [locError, setLocError] = useState<string | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [photo, setPhoto] = useState<ReportPhoto | null>(null);
+  const [photoBusy, setPhotoBusy] = useState<PhotoSource | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+
+  const addPhoto = async (source: PhotoSource) => {
+    setPhotoError(null);
+    setPhotoBusy(source);
+    try {
+      const p = await getReportPhoto(source);
+      if (p) setPhoto(p);
+    } catch (e) {
+      setPhotoError(
+        e instanceof Error && e.message === 'permission'
+          ? t('Allow camera or photo access for Raah to add a photo.')
+          : t('Could not add the photo. Try again.'),
+      );
+    } finally {
+      setPhotoBusy(null);
+    }
+  };
 
   const stretches = corridor?.stretches ?? [];
 
@@ -110,7 +153,7 @@ function SendReport({ presetStretch, onSent }: { presetStretch?: string; onSent:
     try {
       const perm = await Location.requestForegroundPermissionsAsync();
       if (perm.status !== 'granted') {
-        setLocError('Location is off for Raah. Allow it, or pick the stretch with Change.');
+        setLocError(t('Location is off for Raah. Allow it, or pick the stretch with Change.'));
         return;
       }
       const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
@@ -120,7 +163,7 @@ function SendReport({ presetStretch, onSent }: { presetStretch?: string; onSent:
       setKmText('');
       setSpot({ point, km: road.km, town: road.town, offRoadKm: road.offRoadKm, source: 'gps' });
     } catch {
-      setLocError('Could not get your location. Pick the stretch with Change instead.');
+      setLocError(t('Could not get your location. Pick the stretch with Change instead.'));
     } finally {
       setLocating(false);
     }
@@ -131,7 +174,7 @@ function SendReport({ presetStretch, onSent }: { presetStretch?: string; onSent:
     const km = Number(value.replace(',', '.'));
     if (!value.trim() || Number.isNaN(km)) return;
     if (km < 0 || km > CORRIDOR_KM) {
-      setLocError(`NH-7 runs from km 0 (Rishikesh) to km ${Math.floor(CORRIDOR_KM)} (Joshimath).`);
+      setLocError(t('NH-7 runs from km 0 (Rishikesh) to km {max} (Joshimath).', { max: Math.floor(CORRIDOR_KM) }));
       return;
     }
     const point = pointAtKm(km, stretches);
@@ -147,10 +190,10 @@ function SendReport({ presetStretch, onSent }: { presetStretch?: string; onSent:
   const ready = !!type && !!spot && !tooFar && textOk && nameOk && consent;
 
   const missing = [
-    !type && 'what you saw',
-    !spot && 'where it is',
-    !textOk && 'a short description (5+ letters)',
-    !consent && 'your agreement to share',
+    !type && t('what you saw'),
+    !spot && t('where it is'),
+    !textOk && t('a short description (5+ letters)'),
+    !consent && t('your agreement to share'),
   ].filter(Boolean) as string[];
 
   const send = async () => {
@@ -158,11 +201,29 @@ function SendReport({ presetStretch, onSent }: { presetStretch?: string; onSent:
     setSending(true);
     setSendError(null);
     try {
+      // The photo goes first; its URL then travels with the report
+      let photoUrl: string | undefined;
+      let note: string | null = null;
+      if (photo) {
+        try {
+          photoUrl = (await api.uploadPhoto(photo.uri)).photo_url;
+        } catch (e) {
+          const pe = e instanceof ApiError ? e : null;
+          if (pe && (pe.status === 404 || pe.status === 405)) {
+            note = t('Sent without the photo: this server does not take photos yet.');
+          } else if (pe && (pe.status === 413 || pe.status === 415)) {
+            note = t('Sent without the photo: the photo could not be used.');
+          } else {
+            throw e;
+          }
+        }
+      }
       const res = await api.sendReport({
         lat: spot.point[0],
         lng: spot.point[1],
         description: encodeDescription(type, spot.km, text),
         reporter_name: name.trim() || 'Traveller',
+        ...(photoUrl ? { photo_url: photoUrl } : null),
       });
       const mine = (await readJson<number[]>(KEYS.myReports)) ?? [];
       await writeJson(KEYS.myReports, [res.report_id, ...mine].slice(0, 50));
@@ -170,57 +231,60 @@ function SendReport({ presetStretch, onSent }: { presetStretch?: string; onSent:
       setType(null);
       setText('');
       setConsent(false);
-      onSent(res.report_id);
+      setPhoto(null);
+      onSent(res.report_id, note);
     } catch (e) {
       const err = e instanceof ApiError ? e : null;
       if (!err || err.status === 0)
-        setSendError(`${connectionHelp(e)} Your report is still here: try again when you have signal.`);
+        setSendError(`${connectionHelp(e)} ${t('Your report is still here: try again when you have signal.')}`);
       else if (err.status === 409)
-        setSendError('You already reported this place in the last 10 minutes. Thank you, one report is enough.');
+        setSendError(t('You already reported this place in the last 10 minutes. Thank you, one report is enough.'));
       else if (err.status === 429)
-        setSendError('Too many reports from this network in the last minute. Wait a minute and send again.');
+        setSendError(t('Too many reports from this network in the last minute. Wait a minute and send again.'));
       else if (err.status === 422)
         setSendError(
           err.detail?.includes('3.0 km')
-            ? 'This place is more than 3 km from NH-7. Reports must be on or next to the road.'
-            : err.detail || 'Please check the report and try again.',
+            ? t('This place is more than 3 km from NH-7. Reports must be on or next to the road.')
+            : err.detail || t('Please check the report and try again.'),
         );
-      else setSendError(err.detail || 'The report could not be sent. Try again.');
+      else setSendError(err.detail || t('The report could not be sent. Try again.'));
     } finally {
       setSending(false);
     }
   };
 
-  const spotTitle = spot ? `Near ${spot.town}, km ${Math.round(spot.km)}` : 'Not set yet';
+  const spotTitle = spot
+    ? t('Near {town}, km {km}', { town: townName(spot.town), km: Math.round(spot.km) })
+    : t('Not set yet');
   const spotSub = spot
     ? spot.source === 'gps'
       ? tooFar
-        ? `From your GPS · ${spot.offRoadKm.toFixed(1)} km from NH-7`
-        : 'From your GPS · on NH-7'
+        ? t('From your GPS · {km} km from NH-7', { km: spot.offRoadKm.toFixed(1) })
+        : t('From your GPS · on NH-7')
       : spot.source === 'km'
-        ? 'From the km you typed'
-        : 'Middle of the stretch you picked'
-    : 'Use your location or pick the stretch';
+        ? t('From the km you typed')
+        : t('Middle of the stretch you picked')
+    : t('Use your location or pick the stretch');
 
   return (
     <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
       <Txt variant="h3" style={styles.q}>
-        What did you see?
+        {t('What did you see?')}
       </Txt>
       <View style={styles.grid}>
-        {REPORT_TYPES.map((t) => {
-          const active = type?.id === t.id;
-          const Icon = t.icon;
+        {REPORT_TYPES.map((rt) => {
+          const active = type?.id === rt.id;
+          const Icon = rt.icon;
           return (
             <Pressable
-              key={t.id}
+              key={rt.id}
               accessibilityRole="radio"
               accessibilityState={{ checked: active }}
-              onPress={() => setType(t)}
+              onPress={() => setType(rt)}
               style={[styles.typeTile, active && styles.typeActive]}>
               <Icon size={28} color={colors.ink} strokeWidth={1.8} />
               <Txt variant="smallStrong" style={{ fontSize: 13, textAlign: 'center' }}>
-                {t.label}
+                {t(rt.label)}
               </Txt>
             </Pressable>
           );
@@ -228,7 +292,7 @@ function SendReport({ presetStretch, onSent }: { presetStretch?: string; onSent:
       </View>
 
       <Txt variant="h3" style={styles.q}>
-        Where is it?
+        {t('Where is it?')}
       </Txt>
       <Card style={{ gap: 14 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
@@ -243,28 +307,28 @@ function SendReport({ presetStretch, onSent }: { presetStretch?: string; onSent:
               {spotSub}
             </Txt>
           </View>
-          <Button compact kind="outline" label="Change" onPress={() => setPicker(true)} />
+          <Button compact kind="outline" label={t('Change')} onPress={() => setPicker(true)} />
         </View>
         <Button
           kind="outline"
           icon={Crosshair}
-          label="Use my current location"
+          label={t('Use my current location')}
           loading={locating}
           onPress={locateMe}
           compact
         />
         <View style={styles.kmRow}>
           <Txt color={colors.inkMuted} style={{ flex: 1 }}>
-            NH-7 km stone, if you know it
+            {t('NH-7 km stone, if you know it')}
           </Txt>
           <TextInput
             value={kmText}
             onChangeText={applyKm}
-            placeholder="e.g. 114"
+            placeholder={t('e.g. 114')}
             placeholderTextColor={colors.inkFaint}
             keyboardType="decimal-pad"
-            style={[styles.input, { width: 110, height: 48 }]}
-            accessibilityLabel="NH-7 kilometre"
+            style={[styles.input, { width: 110, height: 48, fontFamily: fontFor(fonts.body, lang) }]}
+            accessibilityLabel={t('NH-7 kilometre')}
             maxLength={6}
           />
         </View>
@@ -272,36 +336,88 @@ function SendReport({ presetStretch, onSent }: { presetStretch?: string; onSent:
         {tooFar ? (
           <Notice
             tone="error"
-            title="Too far from NH-7"
-            body="Reports must be within 3 km of the road. Pick the stretch with Change if you are reporting for someone else."
+            title={t('Too far from NH-7')}
+            body={t(
+              'Reports must be within 3 km of the road. Pick the stretch with Change if you are reporting for someone else.',
+            )}
           />
         ) : null}
       </Card>
 
       <Txt variant="h3" style={styles.q}>
-        What is happening?
+        {t('What is happening?')}
       </Txt>
       <TextInput
         value={text}
         onChangeText={(v) => setText(v.slice(0, MAX_DESCRIPTION))}
-        placeholder="For example: small stones falling on the uphill side near the bend. One lane is open."
+        placeholder={t('For example: small stones falling on the uphill side near the bend. One lane is open.')}
         placeholderTextColor={colors.inkFaint}
         multiline
-        style={[styles.input, styles.textarea]}
-        accessibilityLabel="Describe what is happening"
+        style={[styles.input, styles.textarea, { fontFamily: fontFor(fonts.body, lang) }]}
+        accessibilityLabel={t('Describe what is happening')}
       />
       <Txt variant="small" color={colors.inkMuted} style={{ textAlign: 'right', marginTop: 6 }}>
         {text.length} / {MAX_DESCRIPTION}
       </Txt>
 
+      <Txt variant="h3" style={styles.q}>
+        {t('Add a photo (optional)')}
+      </Txt>
+      {photo ? (
+        <View style={styles.photoWrap}>
+          <Image
+            source={{ uri: photo.uri }}
+            style={[styles.photo, { aspectRatio: photo.width / photo.height || 4 / 3 }]}
+            accessibilityLabel={t('Photo for this report')}
+          />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('Remove the photo')}
+            onPress={() => setPhoto(null)}
+            hitSlop={8}
+            style={styles.photoRemove}>
+            <X size={20} color={colors.white} />
+          </Pressable>
+        </View>
+      ) : (
+        <View style={styles.photoButtons}>
+          <Button
+            compact
+            kind="outline"
+            icon={Camera}
+            label={t('Take photo')}
+            loading={photoBusy === 'camera'}
+            onPress={() => addPhoto('camera')}
+            style={{ flex: 1 }}
+          />
+          <Button
+            compact
+            kind="outline"
+            icon={ImagePlus}
+            label={t('From gallery')}
+            loading={photoBusy === 'library'}
+            onPress={() => addPhoto('library')}
+            style={{ flex: 1 }}
+          />
+        </View>
+      )}
+      {photoError ? (
+        <View style={{ marginTop: 8 }}>
+          <Notice tone="warn" title={photoError} />
+        </View>
+      ) : null}
+      <Txt variant="small" color={colors.inkMuted} style={{ marginTop: 6 }}>
+        {t('Officials see the photo. Location details inside the photo file are removed before it is sent.')}
+      </Txt>
+
       <TextInput
         value={name}
         onChangeText={setName}
-        placeholder="Your name or role (optional), e.g. taxi driver"
+        placeholder={t('Your name or role (optional), e.g. taxi driver')}
         placeholderTextColor={colors.inkFaint}
-        style={[styles.input, { marginTop: 8, height: 48 }]}
+        style={[styles.input, { marginTop: 8, height: 48, fontFamily: fontFor(fonts.body, lang) }]}
         maxLength={60}
-        accessibilityLabel="Your name or role, optional"
+        accessibilityLabel={t('Your name or role, optional')}
       />
 
       <Pressable
@@ -313,18 +429,18 @@ function SendReport({ presetStretch, onSent }: { presetStretch?: string; onSent:
           {consent ? <Check size={18} color={colors.white} strokeWidth={3} /> : null}
         </View>
         <Txt style={{ flex: 1, fontSize: 14 }}>
-          I agree to share this report, its place and the name above to help keep NH-7 safe.
+          {t('I agree to share this report, its place and the name above to help keep NH-7 safe.')}
         </Txt>
       </Pressable>
 
       {sendError ? (
         <View style={{ marginTop: 14 }}>
-          <Notice tone="error" icon={TriangleAlert} title="Not sent" body={sendError} />
+          <Notice tone="error" icon={TriangleAlert} title={t('Not sent')} body={sendError} />
         </View>
       ) : null}
 
       <Button
-        label="Send report"
+        label={t('Send report')}
         icon={Send}
         onPress={send}
         disabled={!ready}
@@ -333,7 +449,7 @@ function SendReport({ presetStretch, onSent }: { presetStretch?: string; onSent:
       />
       {!ready && missing.length ? (
         <Txt variant="small" color={colors.inkMuted} style={{ textAlign: 'center', marginTop: 8 }}>
-          Still needed: {missing.join(', ')}.
+          {t('Still needed: {list}.', { list: missing.join(', ') })}
         </Txt>
       ) : null}
       <Pressable onPress={() => router.navigate('/emergency')} accessibilityRole="link">
@@ -341,27 +457,27 @@ function SendReport({ presetStretch, onSent }: { presetStretch?: string; onSent:
           variant="bodyStrong"
           color={LEVELS.severe.ink}
           style={{ textAlign: 'center', marginTop: 18, fontSize: 14 }}>
-          Someone hurt or in danger? Call 112 first.
+          {t('Someone hurt or in danger? Call 112 first.')}
         </Txt>
       </Pressable>
 
       <Card style={{ marginTop: 24, gap: 6 }}>
         <Txt variant="bodyStrong" style={{ fontSize: 14 }}>
-          What happens to your report
+          {t('What happens to your report')}
         </Txt>
         {[
           'Officials check every report. Until then it shows as Pending.',
           'A verified report can raise its stretch by one level on everyone’s map. The effect fades over about two days.',
           'A rejected report changes nothing.',
           'Report only what you see yourself. Stop safely before you type.',
-        ].map((t) => (
-          <Txt key={t}>• {t}</Txt>
+        ].map((line) => (
+          <Txt key={line}>• {t(line)}</Txt>
         ))}
       </Card>
 
       <PickerSheet
         visible={picker}
-        title="Which stretch?"
+        title={t('Which stretch?')}
         options={stretches.map((s) => ({
           value: s.id,
           label: s.name,
@@ -382,11 +498,12 @@ function SendReport({ presetStretch, onSent }: { presetStretch?: string; onSent:
   );
 }
 
-function RecentReports({ sentId }: { sentId: number | null }) {
+function RecentReports({ sentId, sentNote }: { sentId: number | null; sentNote: string | null }) {
   const reports = useFieldReports();
   const { corridor } = useCorridor();
   const [mine, setMine] = useState<number[]>([]);
   const [filter, setFilter] = useState<string>('all');
+  const { t } = useI18n();
 
   useEffect(() => {
     readJson<number[]>(KEYS.myReports).then((ids) => setMine(ids ?? []));
@@ -400,9 +517,9 @@ function RecentReports({ sentId }: { sentId: number | null }) {
   }, [reports.data, filter]);
 
   const place = (r: FieldReport, km: number | null) => {
-    if (km != null) return `${nearestTown(km).name}, km ${Math.round(km)}`;
+    if (km != null) return `${townName(nearestTown(km).name)}, km ${Math.round(km)}`;
     const pos = corridor ? locateOnRoad([r.lat, r.lng], corridor.stretches) : null;
-    return pos ? `${pos.town}, km ${Math.round(pos.km)}` : `${r.lat.toFixed(3)}, ${r.lng.toFixed(3)}`;
+    return pos ? `${townName(pos.town)}, km ${Math.round(pos.km)}` : `${r.lat.toFixed(3)}, ${r.lng.toFixed(3)}`;
   };
 
   return (
@@ -411,31 +528,36 @@ function RecentReports({ sentId }: { sentId: number | null }) {
         <Notice
           tone="ok"
           icon={CircleCheck}
-          title="Report sent. Thank you!"
-          body="It is Pending until officials check it. If verified, the stretch's risk goes up on the map."
+          title={t('Report sent. Thank you!')}
+          body={t("It is Pending until officials check it. If verified, the stretch's risk goes up on the map.")}
         />
+      ) : null}
+      {sentId && sentNote ? (
+        <View style={{ marginTop: 10 }}>
+          <Notice tone="warn" title={sentNote} />
+        </View>
       ) : null}
 
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ gap: 10, paddingVertical: 14 }}>
-        <Chip label="All" active={filter === 'all'} onPress={() => setFilter('all')} />
-        {REPORT_TYPES.map((t) => (
-          <Chip key={t.id} label={t.label} active={filter === t.id} onPress={() => setFilter(t.id)} />
+        <Chip label={t('All')} active={filter === 'all'} onPress={() => setFilter('all')} />
+        {REPORT_TYPES.map((rt) => (
+          <Chip key={rt.id} label={t(rt.label)} active={filter === rt.id} onPress={() => setFilter(rt.id)} />
         ))}
       </ScrollView>
 
       {reports.isPending ? <ActivityIndicator color={colors.navy} style={{ marginTop: 24 }} /> : null}
       {reports.isError ? (
         <View style={{ gap: 12 }}>
-          <Notice tone="error" title="Could not load reports" body={connectionHelp(reports.error)} />
-          <Button kind="outline" icon={RefreshCw} label="Try again" onPress={() => reports.refetch()} />
+          <Notice tone="error" title={t('Could not load reports')} body={connectionHelp(reports.error)} />
+          <Button kind="outline" icon={RefreshCw} label={t('Try again')} onPress={() => reports.refetch()} />
         </View>
       ) : null}
       {reports.data && !items.length ? (
         <Card>
-          <Txt>{filter === 'all' ? 'No reports yet.' : 'No reports of this type yet.'}</Txt>
+          <Txt>{filter === 'all' ? t('No reports yet.') : t('No reports of this type yet.')}</Txt>
         </Card>
       ) : null}
 
@@ -458,7 +580,7 @@ function RecentReports({ sentId }: { sentId: number | null }) {
                   style={{ flex: 1, fontSize: 13 }}
                   numberOfLines={1}>
                   {isMine
-                    ? `YOUR REPORT · ${relativeStamp(r.created_at)}`
+                    ? `${t('YOUR REPORT')} · ${relativeStamp(r.created_at)}`
                     : `${relativeStamp(r.created_at)} · ${r.reporter_name}`}
                 </Txt>
                 <View
@@ -467,16 +589,24 @@ function RecentReports({ sentId }: { sentId: number | null }) {
                     { backgroundColor: statusStyle.backgroundColor, borderColor: statusStyle.borderColor },
                   ]}>
                   <Txt variant="eyebrow" color={statusStyle.color}>
-                    {status}
+                    {t(status)}
                   </Txt>
                 </View>
               </View>
               <Txt variant="h3" style={{ fontSize: 16, marginTop: 8, fontFamily: fonts.bodyBold }}>
-                {p.type.label} · {place(r, p.km)}
+                {t(p.type.label)} · {place(r, p.km)}
               </Txt>
               <Txt color={colors.inkMuted} style={{ fontSize: 14, marginTop: 4 }}>
                 {p.text}
               </Txt>
+              {r.photo_url ? (
+                <Image
+                  source={{ uri: r.photo_url }}
+                  style={styles.cardPhoto}
+                  resizeMode="cover"
+                  accessibilityLabel={t('Photo with this report')}
+                />
+              ) : null}
             </View>
           );
         })}
@@ -538,6 +668,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   reportCard: { backgroundColor: colors.white, borderRadius: radius.lg, padding: 18 },
+  cardPhoto: {
+    width: '100%',
+    aspectRatio: 4 / 3,
+    borderRadius: radius.md,
+    marginTop: 10,
+    backgroundColor: colors.chip,
+  },
+  photoButtons: { flexDirection: 'row', gap: 10 },
+  photoWrap: { borderRadius: radius.md, overflow: 'hidden' },
+  photo: { width: '100%', maxHeight: 320, backgroundColor: colors.chip },
+  photoRemove: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(11,26,34,0.7)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   reportMine: { borderWidth: 3, borderColor: colors.navy, padding: 15 },
   status: { borderWidth: 1.5, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 4 },
 });

@@ -5,6 +5,7 @@ import offlinePackFixture from '@/data/fixtures/offline-pack.json';
 import riskMapFixture from '@/data/fixtures/risk-map.json';
 import { LEVELS } from '@/domain/levels';
 import { adaptSegment, byWorst, type Stretch } from '@/domain/stretch';
+import { getLang } from '@/i18n';
 
 import { api } from './client';
 import { KEYS, readJson, writeJson } from './storage';
@@ -98,8 +99,9 @@ export interface TripParams {
 
 export function useTrip(p: TripParams | null) {
   return useQuery<RouteRiskResponse>({
-    queryKey: ['trip', p?.origin, p?.destination, p?.departTime],
-    queryFn: () => api.tripPlanner({ origin: p!.origin, destination: p!.destination, depart_time: p!.departTime }),
+    queryKey: ['trip', p?.origin, p?.destination, p?.departTime, getLang()],
+    queryFn: () =>
+      api.tripPlanner({ origin: p!.origin, destination: p!.destination, depart_time: p!.departTime, lang: getLang() }),
     enabled: !!p,
     retry: false,
     staleTime: 2 * 60 * 1000,

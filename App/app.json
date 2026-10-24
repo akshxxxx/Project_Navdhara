@@ -47,6 +47,22 @@
         {
           "locationWhenInUsePermission": "Raah uses your location to place your road report on NH-7."
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Raah lets you add a photo of the road to your report.",
+          "cameraPermission": "Raah lets you take a photo of the road for your report.",
+          "microphonePermission": false
+        }
       ]
     ],
     "scheme": "raah",

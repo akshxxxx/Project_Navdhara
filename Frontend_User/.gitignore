@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.env
+.env.local
+*.log
+
+# The repository's root .gitignore ignores every Markdown file; keep this folder's README and log
+!/README.md
+!/log.md

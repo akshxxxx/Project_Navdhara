@@ -64,6 +64,7 @@ API on `:8000`, Swagger at `/docs`, workbench at `/`.
 | GET | `/closures` | `{active_closures_count, closures[]}` with `segment_name`. *Shape changed 2026-10-23, L-006* | Web, App |
 | POST / DELETE | `/admin/closure`, `/admin/closure/{id}` | Create or lift a closure (admin key) | Web (lift), App (create, lift) |
 | POST | `/field-report` | Crowd report: 3 km geofence, HTML stripped, ≤ 500 chars, 5/min per IP, 10 min duplicate guard | Web, App |
+| POST | `/field-report/photo` | Photo for a report: multipart `photo`, JPEG/PNG ≤ 3 MB, 10/min per IP → `{photo_url}`; served at `GET /report-photos/<name>`. *Added 2026-10-24, L-048* | App |
 | GET | `/field-reports` | List reports. `status` is `pending` / `verified` / `rejected`; the stored value is in `status_label` | Web, App |
 | POST | `/admin/validate-report` | Validate or reject a report (admin key). Accepts `{decision, notes}` or `{status: verified\|rejected, verified_by}` | Web, App |
 | POST | `/admin/alert-all` | Officials' broadcast (admin key): `{segment_id: seg_XX \| all, message?}` → every consenting subscriber of that stretch plus corridor subscribers. Default message is built from the live level. Logged as `OFFICIAL BROADCAST`. *Added 2026-10-23, L-032* | Web (Map "Alert All", Admin → Broadcast) |
@@ -189,6 +190,7 @@ Details, reasons and verification are in [log.md](log.md) under the given IDs.
 | 2026-10-23 | Web dashboard | Sensors page redesigned around all four node sensors (tilt, vibration, soil moisture, rain). How it works rewritten for officials. | L-036, L-037 |
 | 2026-10-23 | **Raah Node** | **Live hardware link:** automatic USB ingest from a plugged-in ESP32, raw ADC and accelerometer values accepted, server-side state when the board sends none, ESP32 firmware for the team wiring, raw ADC shown on the Sensors page. `pyserial` added. 14 new tests. | L-038 |
 | 2026-10-23 | Tests/setup | Python 3.12+, `pandas` added, test DB auto-created, a weather test with a fixed date repaired, 21 new client-contract tests. Result: 149 tests pass; the 8 failures are the missing generated reports. | L-014, L-015 |
+| 2026-10-24 | Field reports | **New** `POST /field-report/photo` and `/report-photos/*`: travellers can attach a photo (camera or gallery) to a report from the app. Photos are git-ignored user data. 4 new tests. | L-048 |
 
 ---
 

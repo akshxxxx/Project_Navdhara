@@ -1,0 +1,506 @@
+{
+  "version": "7dbe89adf524bb48",
+  "generated_at": "2026-10-06T07:13:35Z",
+  "corridor": "NH-7 Uttarakhand (Rishikesh - Karnaprayag - Joshimath)",
+  "total_segments": 18,
+  "emergency_contacts": [
+    {
+      "name": "National Emergency Helpline",
+      "number": "112"
+    },
+    {
+      "name": "State Disaster Management (SDMA Uttarakhand)",
+      "number": ""
+    },
+    {
+      "name": "Highway Police Control Room",
+      "number": ""
+    },
+    {
+      "name": "Border Roads Organisation (BRO) Control Room",
+      "number": ""
+    },
+    {
+      "name": "Ambulance / Medical Emergency",
+      "number": ""
+    }
+  ],
+  "segments": [
+    {
+      "id": "seg_01",
+      "name": "Rishikesh to Shivpuri",
+      "simplified_polyline": [
+        [
+          30.0869,
+          78.2676
+        ],
+        [
+          30.098,
+          78.305
+        ],
+        [
+          30.115,
+          78.345
+        ],
+        [
+          30.1357,
+          78.3892
+        ]
+      ],
+      "current_risk_level": "Moderate",
+      "risk_level": "Moderate",
+      "terrain_risk_level": "Moderate",
+      "advisory_en": "ADVISORY on Rishikesh to Shivpuri: Moderate slope wetness and slippery road conditions (3-day rain: 13.4 mm). Primary factor: unusual elevation for this road (low, z=-1.2). Speed limits enforced near drainage outlets.",
+      "advisory_hi": "मार्ग सलाह - ऋषिकेश to शिवपुरी: मध्यम ढलान नमी और फिसलन भरी सड़क स्थिति (3 दिवसीय वर्षा: 13.4 मिमी)। मुख्य कारक: इस मार्ग के लिए असामान्य ऊंचाई (कम, z=-1.2)। मोड़ों पर गति सीमा का पालन करें।",
+      "nearest_hospital": "Ayurveda Center"
+    },
+    {
+      "id": "seg_02",
+      "name": "Shivpuri to Byasi",
+      "simplified_polyline": [
+        [
+          30.1357,
+          78.3892
+        ],
+        [
+          30.141,
+          78.42
+        ],
+        [
+          30.144,
+          78.455
+        ],
+        [
+          30.1472,
+          78.4839
+        ]
+      ],
+      "current_risk_level": "Moderate",
+      "risk_level": "Moderate",
+      "terrain_risk_level": "High",
+      "advisory_en": "ADVISORY on Shivpuri to Byasi: Moderate slope wetness and slippery road conditions (3-day rain: 13.3 mm). Primary factor: unusual elevation for this road (low, z=-1.1). Speed limits enforced near drainage outlets.",
+      "advisory_hi": "मार्ग सलाह - शिवपुरी to ब्यासी: मध्यम ढलान नमी और फिसलन भरी सड़क स्थिति (3 दिवसीय वर्षा: 13.3 मिमी)। मुख्य कारक: इस मार्ग के लिए असामान्य ऊंचाई (कम, z=-1.1)। मोड़ों पर गति सीमा का पालन करें।",
+      "nearest_hospital": "Laxman Jhula Governement Hospital"
+    },
+    {
+      "id": "seg_03",
+      "name": "Byasi to Kaudiyala",
+      "simplified_polyline": [
+        [
+          30.1472,
+          78.4839
+        ],
+        [
+          30.12,
+          78.49
+        ],
+        [
+          30.095,
+          78.498
+        ],
+        [
+          30.0765,
+          78.5028
+        ]
+      ],
+      "current_risk_level": "Moderate",
+      "risk_level": "Moderate",
+      "terrain_risk_level": "High",
+      "advisory_en": "ADVISORY on Byasi to Kaudiyala: Moderate slope wetness and slippery road conditions (3-day rain: 19.9 mm). Primary factor: unusual elevation for this road (low, z=-1.0). Speed limits enforced near drainage outlets.",
+      "advisory_hi": "मार्ग सलाह - ब्यासी to कौड़ियाला: मध्यम ढलान नमी और फिसलन भरी सड़क स्थिति (3 दिवसीय वर्षा: 19.9 मिमी)। मुख्य कारक: इस मार्ग के लिए असामान्य ऊंचाई (कम, z=-1.0)। मोड़ों पर गति सीमा का पालन करें।",
+      "nearest_hospital": "Government Hospital, Katghar"
+    },
+    {
+      "id": "seg_04",
+      "name": "Kaudiyala to Devprayag",
+      "simplified_polyline": [
+        [
+          30.0765,
+          78.5028
+        ],
+        [
+          30.095,
+          78.535
+        ],
+        [
+          30.125,
+          78.57
+        ],
+        [
+          30.1459,
+          78.5986
+        ]
+      ],
+      "current_risk_level": "Moderate",
+      "risk_level": "Moderate",
+      "terrain_risk_level": "Moderate",
+      "advisory_en": "ADVISORY on Kaudiyala to Devprayag: Moderate slope wetness and slippery road conditions (3-day rain: 19.9 mm). Primary factor: unusual slope aspect (north-south) for this road (low, z=-0.7). Speed limits enforced near drainage outlets.",
+      "advisory_hi": "मार्ग सलाह - कौड़ियाला to देवप्रयाग: मध्यम ढलान नमी और फिसलन भरी सड़क स्थिति (3 दिवसीय वर्षा: 19.9 मिमी)। मुख्य कारक: इस मार्ग के लिए असामान्य ढलान की दिशा (उत्तर-दक्षिण) (कम, z=-0.7)। मोड़ों पर गति सीमा का पालन करें।",
+      "nearest_hospital": "Government Hospital, Sabdarkhal"
+    },
+    {
+      "id": "seg_05",
+      "name": "Devprayag to Teen Dhara",
+      "simplified_polyline": [
+        [
+          30.1459,
+          78.5986
+        ],
+        [
+          30.165,
+          78.625
+        ],
+        [
+          30.185,
+          78.655
+        ],
+        [
+          30.2015,
+          78.682
+        ]
+      ],
+      "current_risk_level": "High",
+      "risk_level": "High",
+      "terrain_risk_level": "High",
+      "advisory_en": "HIGH ALERT on Devprayag to Teen Dhara: Geological instability & active rockfall hazard (3-day rain: 32.5 mm). Primary factor: unusual elevation for this road (low, z=-0.8). Road clearance teams deployed. Travel with extreme caution or consider alternate routes.",
+      "advisory_hi": "उच्च चेतावनी - देवप्रयाग to तीन धारा: भूगर्भीय अस्थिरता एवं सक्रिय चट्टान गिरने का खतरा (3 दिवसीय वर्षा: 32.5 मिमी)। मुख्य कारक: इस मार्ग के लिए असामान्य ऊंचाई (कम, z=-0.8)। अत्यधिक सावधानी बरतें या अद्यतन तक यात्रा टालें।",
+      "nearest_hospital": "Government Hospital, Sabdarkhal"
+    },
+    {
+      "id": "seg_06",
+      "name": "Teen Dhara to Kirtinagar",
+      "simplified_polyline": [
+        [
+          30.2015,
+          78.682
+        ],
+        [
+          30.208,
+          78.705
+        ],
+        [
+          30.213,
+          78.725
+        ],
+        [
+          30.2173,
+          78.7456
+        ]
+      ],
+      "current_risk_level": "Moderate",
+      "risk_level": "Moderate",
+      "terrain_risk_level": "Moderate",
+      "advisory_en": "ADVISORY on Teen Dhara to Kirtinagar: Moderate slope wetness and slippery road conditions (3-day rain: 17.4 mm). Primary factor: unusual elevation for this road (low, z=-0.8). Speed limits enforced near drainage outlets.",
+      "advisory_hi": "मार्ग सलाह - तीन धारा to कीर्तिनगर: मध्यम ढलान नमी और फिसलन भरी सड़क स्थिति (3 दिवसीय वर्षा: 17.4 मिमी)। मुख्य कारक: इस मार्ग के लिए असामान्य ऊंचाई (कम, z=-0.8)। मोड़ों पर गति सीमा का पालन करें।",
+      "nearest_hospital": "Chaudhary Hospital"
+    },
+    {
+      "id": "seg_07",
+      "name": "Kirtinagar to Srinagar",
+      "simplified_polyline": [
+        [
+          30.2173,
+          78.7456
+        ],
+        [
+          30.2195,
+          78.76
+        ],
+        [
+          30.2224,
+          78.7845
+        ]
+      ],
+      "current_risk_level": "Moderate",
+      "risk_level": "Moderate",
+      "terrain_risk_level": "Moderate",
+      "advisory_en": "ADVISORY on Kirtinagar to Srinagar: Moderate slope wetness and slippery road conditions (3-day rain: 17.4 mm). Primary factor: unusual local relief for this road (low, z=-1.4). Speed limits enforced near drainage outlets.",
+      "advisory_hi": "मार्ग सलाह - कीर्तिनगर to श्रीनगर: मध्यम ढलान नमी और फिसलन भरी सड़क स्थिति (3 दिवसीय वर्षा: 17.4 मिमी)। मुख्य कारक: इस मार्ग के लिए असामान्य स्थानीय उच्चावच (राहत) (कम, z=-1.4)। मोड़ों पर गति सीमा का पालन करें।",
+      "nearest_hospital": "Chaudhary Hospital"
+    },
+    {
+      "id": "seg_08",
+      "name": "Srinagar to Sirobagarh",
+      "simplified_polyline": [
+        [
+          30.2224,
+          78.7845
+        ],
+        [
+          30.228,
+          78.81
+        ],
+        [
+          30.234,
+          78.835
+        ],
+        [
+          30.239,
+          78.854
+        ]
+      ],
+      "current_risk_level": "Low",
+      "risk_level": "Low",
+      "terrain_risk_level": "Low",
+      "advisory_en": "NOTICE on Srinagar to Sirobagarh: Road conditions normal.",
+      "advisory_hi": "सामान्य सूचना - श्रीनगर to सिरोबगड़: मार्ग पर स्थिति सामान्य है।",
+      "nearest_hospital": "Hemwati Nandan Bahuguna Base Hospital Srinagar"
+    },
+    {
+      "id": "seg_09",
+      "name": "Sirobagarh to Rudraprayag",
+      "simplified_polyline": [
+        [
+          30.239,
+          78.854
+        ],
+        [
+          30.252,
+          78.895
+        ],
+        [
+          30.268,
+          78.94
+        ],
+        [
+          30.2844,
+          78.9811
+        ]
+      ],
+      "current_risk_level": "Moderate",
+      "risk_level": "Moderate",
+      "terrain_risk_level": "Low",
+      "advisory_en": "ADVISORY on Sirobagarh to Rudraprayag: Moderate slope wetness and slippery road conditions (3-day rain: 10.7 mm). Primary factor: unusual elevation for this road (low, z=-0.5). Speed limits enforced near drainage outlets.",
+      "advisory_hi": "मार्ग सलाह - सिरोबगड़ to रुद्रप्रयाग: मध्यम ढलान नमी और फिसलन भरी सड़क स्थिति (3 दिवसीय वर्षा: 10.7 मिमी)। मुख्य कारक: इस मार्ग के लिए असामान्य ऊंचाई (कम, z=-0.5)। मोड़ों पर गति सीमा का पालन करें।",
+      "nearest_hospital": "Government Hospital, Kherakhal"
+    },
+    {
+      "id": "seg_10",
+      "name": "Rudraprayag to Gauchar",
+      "simplified_polyline": [
+        [
+          30.2844,
+          78.9811
+        ],
+        [
+          30.285,
+          79.04
+        ],
+        [
+          30.286,
+          79.1
+        ],
+        [
+          30.2872,
+          79.1557
+        ]
+      ],
+      "current_risk_level": "Low",
+      "risk_level": "Low",
+      "terrain_risk_level": "Low",
+      "advisory_en": "NOTICE on Rudraprayag to Gauchar: Road conditions normal.",
+      "advisory_hi": "सामान्य सूचना - रुद्रप्रयाग to गौचर: मार्ग पर स्थिति सामान्य है।",
+      "nearest_hospital": "ITBP Hospital"
+    },
+    {
+      "id": "seg_11",
+      "name": "Gauchar to Karnaprayag",
+      "simplified_polyline": [
+        [
+          30.2872,
+          79.1557
+        ],
+        [
+          30.278,
+          79.18
+        ],
+        [
+          30.2587,
+          79.2173
+        ]
+      ],
+      "current_risk_level": "Moderate",
+      "risk_level": "Moderate",
+      "terrain_risk_level": "Low",
+      "advisory_en": "ADVISORY on Gauchar to Karnaprayag: Moderate slope wetness and slippery road conditions (3-day rain: 21.4 mm). Primary factor: unusual slope aspect (north-south) for this road (high, z=+0.4). Speed limits enforced near drainage outlets.",
+      "advisory_hi": "मार्ग सलाह - गौचर to कर्णप्रयाग: मध्यम ढलान नमी और फिसलन भरी सड़क स्थिति (3 दिवसीय वर्षा: 21.4 मिमी)। मुख्य कारक: इस मार्ग के लिए असामान्य ढलान की दिशा (उत्तर-दक्षिण) (अधिक, z=+0.4)। मोड़ों पर गति सीमा का पालन करें।",
+      "nearest_hospital": "Trauma Centre"
+    },
+    {
+      "id": "seg_12",
+      "name": "Karnaprayag to Langasu",
+      "simplified_polyline": [
+        [
+          30.2587,
+          79.2173
+        ],
+        [
+          30.278,
+          79.238
+        ],
+        [
+          30.298,
+          79.255
+        ]
+      ],
+      "current_risk_level": "Moderate",
+      "risk_level": "Moderate",
+      "terrain_risk_level": "Low",
+      "advisory_en": "ADVISORY on Karnaprayag to Langasu: Moderate slope wetness and slippery road conditions (3-day rain: 21.4 mm). Primary factor: unusual slope aspect (north-south) for this road (high, z=+0.4). Speed limits enforced near drainage outlets.",
+      "advisory_hi": "मार्ग सलाह - कर्णप्रयाग to लांगासू: मध्यम ढलान नमी और फिसलन भरी सड़क स्थिति (3 दिवसीय वर्षा: 21.4 मिमी)। मुख्य कारक: इस मार्ग के लिए असामान्य ढलान की दिशा (उत्तर-दक्षिण) (अधिक, z=+0.4)। मोड़ों पर गति सीमा का पालन करें।",
+      "nearest_hospital": "ECHS PolyClinic"
+    },
+    {
+      "id": "seg_13",
+      "name": "Langasu to Nandprayag",
+      "simplified_polyline": [
+        [
+          30.298,
+          79.255
+        ],
+        [
+          30.312,
+          79.285
+        ],
+        [
+          30.3308,
+          79.3242
+        ]
+      ],
+      "current_risk_level": "Low",
+      "risk_level": "Low",
+      "terrain_risk_level": "Low",
+      "advisory_en": "NOTICE on Langasu to Nandprayag: Road conditions normal.",
+      "advisory_hi": "सामान्य सूचना - लांगासू to नंदप्रयाग: मार्ग पर स्थिति सामान्य है।",
+      "nearest_hospital": "Nandprayag Governnment Hospital"
+    },
+    {
+      "id": "seg_14",
+      "name": "Nandprayag to Chamoli",
+      "simplified_polyline": [
+        [
+          30.3308,
+          79.3242
+        ],
+        [
+          30.36,
+          79.335
+        ],
+        [
+          30.385,
+          79.345
+        ],
+        [
+          30.4074,
+          79.3524
+        ]
+      ],
+      "current_risk_level": "Moderate",
+      "risk_level": "Moderate",
+      "terrain_risk_level": "Moderate",
+      "advisory_en": "ADVISORY on Nandprayag to Chamoli: Moderate slope wetness and slippery road conditions (3-day rain: 10.5 mm). Primary factor: unusual slope for this road (high, z=+0.4). Speed limits enforced near drainage outlets.",
+      "advisory_hi": "मार्ग सलाह - नंदप्रयाग to चमोली: मध्यम ढलान नमी और फिसलन भरी सड़क स्थिति (3 दिवसीय वर्षा: 10.5 मिमी)। मुख्य कारक: इस मार्ग के लिए असामान्य ढलान (अधिक, z=+0.4)। मोड़ों पर गति सीमा का पालन करें।",
+      "nearest_hospital": "Nandprayag Governnment Hospital"
+    },
+    {
+      "id": "seg_15",
+      "name": "Chamoli to Birahi",
+      "simplified_polyline": [
+        [
+          30.4074,
+          79.3524
+        ],
+        [
+          30.42,
+          79.37
+        ],
+        [
+          30.435,
+          79.39
+        ]
+      ],
+      "current_risk_level": "Low",
+      "risk_level": "Low",
+      "terrain_risk_level": "Low",
+      "advisory_en": "NOTICE on Chamoli to Birahi: Road conditions normal.",
+      "advisory_hi": "सामान्य सूचना - चमोली to बिरही: मार्ग पर स्थिति सामान्य है।",
+      "nearest_hospital": "District Hospital Gopeshwar"
+    },
+    {
+      "id": "seg_16",
+      "name": "Birahi to Pipalkoti",
+      "simplified_polyline": [
+        [
+          30.435,
+          79.39
+        ],
+        [
+          30.432,
+          79.41
+        ],
+        [
+          30.4297,
+          79.4304
+        ]
+      ],
+      "current_risk_level": "Low",
+      "risk_level": "Low",
+      "terrain_risk_level": "Low",
+      "advisory_en": "NOTICE on Birahi to Pipalkoti: Road conditions normal.",
+      "advisory_hi": "सामान्य सूचना - बिरही to पीपलकोटी: मार्ग पर स्थिति सामान्य है।",
+      "nearest_hospital": "Swami Vivekanand Dharmarth Chikitsalay"
+    },
+    {
+      "id": "seg_17",
+      "name": "Pipalkoti to Helang (Tangani)",
+      "simplified_polyline": [
+        [
+          30.4297,
+          79.4304
+        ],
+        [
+          30.46,
+          79.47
+        ],
+        [
+          30.495,
+          79.51
+        ],
+        [
+          30.528,
+          79.538
+        ]
+      ],
+      "current_risk_level": "Moderate",
+      "risk_level": "Moderate",
+      "terrain_risk_level": "Moderate",
+      "advisory_en": "ADVISORY on Pipalkoti to Helang (Tangani): Moderate slope wetness and slippery road conditions (3-day rain: 4.1 mm). Primary factor: unusual elevation for this road (high, z=+1.3). Speed limits enforced near drainage outlets.",
+      "advisory_hi": "मार्ग सलाह - पीपलकोटी to हेलांग (तंगणी): मध्यम ढलान नमी और फिसलन भरी सड़क स्थिति (3 दिवसीय वर्षा: 4.1 मिमी)। मुख्य कारक: इस मार्ग के लिए असामान्य ऊंचाई (अधिक, z=+1.3)। मोड़ों पर गति सीमा का पालन करें।",
+      "nearest_hospital": "Pipalkoti SD Ground Hospital"
+    },
+    {
+      "id": "seg_18",
+      "name": "Helang to Joshimath",
+      "simplified_polyline": [
+        [
+          30.528,
+          79.538
+        ],
+        [
+          30.54,
+          79.55
+        ],
+        [
+          30.5564,
+          79.5663
+        ]
+      ],
+      "current_risk_level": "Moderate",
+      "risk_level": "Moderate",
+      "terrain_risk_level": "Moderate",
+      "advisory_en": "ADVISORY on Helang to Joshimath: Moderate slope wetness and slippery road conditions (3-day rain: 2.9 mm). Primary factor: unusual elevation for this road (high, z=+1.8). Speed limits enforced near drainage outlets.",
+      "advisory_hi": "मार्ग सलाह - हेलांग to जोशीमठ: मध्यम ढलान नमी और फिसलन भरी सड़क स्थिति (3 दिवसीय वर्षा: 2.9 मिमी)। मुख्य कारक: इस मार्ग के लिए असामान्य ऊंचाई (अधिक, z=+1.8)। मोड़ों पर गति सीमा का पालन करें।",
+      "nearest_hospital": "Pipalkoti SD Ground Hospital"
+    }
+  ]
+}

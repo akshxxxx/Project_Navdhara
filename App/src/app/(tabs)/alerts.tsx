@@ -6,9 +6,10 @@ import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, TextInp
 import { useCorridor } from '@/api/hooks';
 import { AppHeader } from '@/components/AppHeader';
 import { Card, Chip, Disclaimer, LevelBadge, Txt } from '@/components/ui';
-import { LEVELS, type LevelKey } from '@/domain/levels';
-import { alertCategory, cardSubtitle, isHeavyRain, kmRange, type Stretch } from '@/domain/stretch';
+import { LEVELS, levelLabel, type LevelKey } from '@/domain/levels';
+import { alertCategory, cardSubtitle, isHeavyRain, kmRange, stretchName, type Stretch } from '@/domain/stretch';
 import { updatedLabel } from '@/domain/time';
+import { fontFor, useI18n } from '@/i18n';
 import { colors, fonts, radius } from '@/theme/tokens';
 
 type Filter = 'all' | LevelKey;
@@ -27,11 +28,12 @@ function matches(s: Stretch, q: string): boolean {
   const km = Number(query.replace(/^km\s*/, ''));
   if (!Number.isNaN(km) && query.replace(/^km\s*/, '') !== '')
     return km >= Math.floor(s.kmStart) && km <= Math.ceil(s.kmEnd);
-  return s.name.toLowerCase().includes(query);
+  return s.name.toLowerCase().includes(query) || stretchName(s).toLowerCase().includes(query);
 }
 
 export default function AlertsScreen() {
   const { corridor, refetch, isRefetching } = useCorridor();
+  const { t, lang } = useI18n();
   const [filter, setFilter] = useState<Filter>('all');
   const [query, setQuery] = useState('');
 
@@ -43,7 +45,7 @@ export default function AlertsScreen() {
   if (!corridor) {
     return (
       <View style={{ flex: 1 }}>
-        <AppHeader title="Alerts" />
+        <AppHeader title={t('Alerts')} />
         <ActivityIndicator style={{ marginTop: 40 }} color={colors.navy} />
       </View>
     );
@@ -53,11 +55,11 @@ export default function AlertsScreen() {
     k === 'all' ? corridor.stretches.length : corridor.stretches.filter((s) => s.level === k).length;
   const heavyRain = corridor.stretches.filter(isHeavyRain).length;
   const sourceText =
-    corridor.source === 'live' ? 'Live' : corridor.source === 'saved' ? 'Offline copy' : 'Demo data, not live';
+    corridor.source === 'live' ? t('Live') : corridor.source === 'saved' ? t('Offline copy') : t('Demo data, not live');
 
   return (
     <View style={{ flex: 1 }}>
-      <AppHeader title="Alerts" />
+      <AppHeader title={t('Alerts')} />
       <FlatList
         data={list}
         keyExtractor={(s) => s.id}
@@ -71,10 +73,10 @@ export default function AlertsScreen() {
               <TextInput
                 value={query}
                 onChangeText={setQuery}
-                placeholder="Search stretch or km"
+                placeholder={t('Search stretch or km')}
                 placeholderTextColor={colors.inkFaint}
-                style={styles.searchInput}
-                accessibilityLabel="Search stretch name or km"
+                style={[styles.searchInput, { fontFamily: fontFor(fonts.body, lang) }]}
+                accessibilityLabel={t('Search stretch name or km')}
                 returnKeyType="search"
               />
             </View>
@@ -82,7 +84,7 @@ export default function AlertsScreen() {
               {FILTERS.map((f) => (
                 <Chip
                   key={f.key}
-                  label={`${f.label} ${count(f.key)}`}
+                  label={`${t(f.label)} ${count(f.key)}`}
                   active={filter === f.key}
                   dotColor={f.key === 'all' ? undefined : LEVELS[f.key].color}
                   onPress={() => setFilter(f.key)}
@@ -100,12 +102,15 @@ export default function AlertsScreen() {
                 {sourceText}
               </Txt>
               <Txt color={colors.inkMuted} style={{ flex: 1 }} numberOfLines={1}>
-                {updatedLabel(corridor.updatedAt).replace(/^u/, 'U')} · worst first
+                {updatedLabel(corridor.updatedAt, true)} · {t('worst first')}
               </Txt>
             </View>
             {heavyRain ? (
               <Txt color={colors.inkMuted}>
-                Heavy recent rain on {heavyRain} of {corridor.stretches.length} stretches.
+                {t('Heavy recent rain on {n} of {total} stretches.', {
+                  n: heavyRain,
+                  total: corridor.stretches.length,
+                })}
               </Txt>
             ) : null}
           </View>
@@ -121,8 +126,10 @@ export default function AlertsScreen() {
           <Card>
             <Txt>
               {query
-                ? `No stretch matches "${query}".`
-                : `No ${FILTERS.find((f) => f.key === filter)?.label.toLowerCase()} alerts right now.`}
+                ? t('No stretch matches "{q}".', { q: query })
+                : t('No {kind} alerts right now.', {
+                    kind: t(FILTERS.find((f) => f.key === filter)?.label ?? '').toLowerCase(),
+                  })}
             </Txt>
           </Card>
         }
@@ -135,9 +142,9 @@ export default function AlertsScreen() {
               <Phone size={24} color={LEVELS.severe.color} />
               <View style={{ flex: 1 }}>
                 <Txt variant="bodyStrong" style={{ fontSize: 14 }}>
-                  Emergency contacts
+                  {t('Emergency contacts')}
                 </Txt>
-                <Txt color={colors.inkMuted}>112, helplines and hospitals along NH-7</Txt>
+                <Txt color={colors.inkMuted}>{t('112, your contacts, helplines and hospitals')}</Txt>
               </View>
               <ChevronRight size={22} color={colors.inkMuted} />
             </Pressable>
@@ -145,15 +152,15 @@ export default function AlertsScreen() {
               <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center', marginBottom: 8 }}>
                 <ShieldAlert size={22} color={colors.teal} />
                 <Txt variant="bodyStrong" style={{ fontSize: 14 }}>
-                  Travel safety
+                  {t('Travel safety')}
                 </Txt>
               </View>
               {[
                 'Check the trip before you leave and again on the way.',
                 'Avoid driving at night when it is raining.',
                 'Follow BRO, SDRF and police instructions over any app.',
-              ].map((t) => (
-                <Txt key={t}>• {t}</Txt>
+              ].map((tip) => (
+                <Txt key={tip}>• {t(tip)}</Txt>
               ))}
             </Card>
             <Disclaimer />
@@ -165,10 +172,11 @@ export default function AlertsScreen() {
 }
 
 function AlertCard({ stretch, highlight }: { stretch: Stretch; highlight: boolean }) {
+  const { t } = useI18n();
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${stretch.name}, ${LEVELS[stretch.level].label}, ${alertCategory(stretch)}. Opens details`}
+      accessibilityLabel={`${stretchName(stretch)}, ${levelLabel(stretch.level)}, ${alertCategory(stretch)}. ${t('Opens details')}`}
       onPress={() => router.push(`/alert/${stretch.id}`)}
       style={({ pressed }) => [styles.card, highlight && styles.cardHighlight, pressed && { opacity: 0.85 }]}>
       <View style={styles.cardTop}>
@@ -182,7 +190,7 @@ function AlertCard({ stretch, highlight }: { stretch: Stretch; highlight: boolea
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 }}>
         <View style={{ flex: 1 }}>
           <Txt variant="h2" style={{ fontSize: 18 }}>
-            {stretch.name}
+            {stretchName(stretch)}
           </Txt>
           <Txt color={colors.inkMuted} style={{ fontSize: 13, marginTop: 2 }} numberOfLines={2}>
             {alertCategory(stretch)} · {cardSubtitle(stretch)}

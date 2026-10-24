@@ -671,3 +671,16 @@ Each entry records **When** (IST), **Who**, **What**, **Why**, **How**, and the 
 - **Fixed after the first render:** the desktop page was cut off before the end of the hospital list (height 1180 → 1260), and the app emergency screen's last card sat under the bottom bar (spacing tightened).
 - **All five client pages now have desktop and app designs:** Map, Plan trip, Alerts, Reports, Emergency (L-041 to L-047, 16 images in `design/ui/`).
 - **Files:** `design/ui/web_emergency_desktop.png`, `design/ui/app_emergency.png`, `design/ui/app_hospitals.png` (new), `log.md`
+
+### L-048 — Backend: photo upload for field reports
+- **When:** 2026-10-24 05:30–05:45 IST
+- **Who:** Claude Code for Aakash (approved when asked: "Add a backend endpoint").
+- **What:**
+  - **New** `POST /field-report/photo` (multipart, field `photo`): takes one JPEG or PNG up to 3 MB and returns `201 {photo_url, bytes}`. 413 if too large, 415 if the bytes are not a JPEG or PNG (checked by the file's first bytes, not its name or content type). Limited to 10 per minute per IP.
+  - Photos are saved in `Backend/data/report_photos/` under a random name and served at `GET /report-photos/<name>`.
+  - `POST /field-report` already accepted `photo_url`; the app now sends it.
+- **Why:** the mobile app (App/ APP-023) lets travellers attach a photo from the camera or gallery, so officials can see what was reported before verifying it.
+- **How:** `routes/reports.py` holds the endpoint and the photo folder constants; `main.py` creates the folder and mounts it with `StaticFiles` after `/static`. The folder is git-ignored, because the photos are user data.
+- **Checked:** 4 new tests in `tests/test_report_photos.py` (upload and fetch back, non-image → 415, over 3 MB → 413, a report accepts the returned URL) all pass. Full suite: 195 passed, 8 failed (the known missing generated reports).
+- **Not done:** the web dashboard's Reports page does not show the photo yet; no clean-up of old photos.
+- **Files:** `Backend/app/routes/reports.py`, `Backend/app/main.py`, `Backend/tests/test_report_photos.py` (new), `.gitignore`, `features.md`, `log.md`

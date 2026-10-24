@@ -1,6 +1,8 @@
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
+import { tr } from '@/i18n';
+
 import { KEYS, readJson, writeJson } from './storage';
 import type { FieldReport, FieldReportCreated, OfflinePackResponse, RiskMapResponse, RouteRiskResponse } from './types';
 
@@ -97,8 +99,8 @@ async function request<T>(path: string, init: RequestInit = {}, timeoutMs = 1000
 export function connectionHelp(err: unknown): string {
   const e = err instanceof ApiError ? err : null;
   const where = getApiUrl();
-  if (e?.network === 'timeout') return `The Raah server at ${where} did not answer in time.`;
-  return `Cannot reach the Raah server at ${where}.`;
+  if (e?.network === 'timeout') return tr('The Raah server at {url} did not answer in time.', { url: where });
+  return tr('Cannot reach the Raah server at {url}.', { url: where });
 }
 
 const json = (body: unknown): RequestInit => ({
@@ -113,8 +115,25 @@ export const api = {
   offlinePack: () => request<OfflinePackResponse>('/offline-pack'),
   fieldReports: () => request<FieldReport[]>('/field-reports'),
   // The planner may fetch weather first, so it gets longer than the other calls
-  tripPlanner: (body: { origin: string; destination: string; depart_time: string; speed_kmph?: number }) =>
-    request<RouteRiskResponse>('/trip-planner', json({ ...body, lang: 'en' }), 20000),
-  sendReport: (body: { lat: number; lng: number; description: string; reporter_name: string }) =>
+  tripPlanner: (body: {
+    origin: string;
+    destination: string;
+    depart_time: string;
+    speed_kmph?: number;
+    lang: 'en' | 'hi';
+  }) => request<RouteRiskResponse>('/trip-planner', json(body), 20000),
+  sendReport: (body: { lat: number; lng: number; description: string; reporter_name: string; photo_url?: string }) =>
     request<FieldReportCreated>('/field-report', json(body)),
+  /** Uploads a JPEG from the device; the returned URL goes in the report's photo_url */
+  uploadPhoto: async (uri: string) => {
+    const form = new FormData();
+    if (Platform.OS === 'web') {
+      const blob = await (await fetch(uri)).blob();
+      form.append('photo', blob, 'report.jpg');
+    } else {
+      // React Native's FormData takes a file descriptor object instead of a Blob
+      form.append('photo', { uri, name: 'report.jpg', type: 'image/jpeg' } as unknown as Blob);
+    }
+    return request<{ photo_url: string }>('/field-report/photo', { method: 'POST', body: form }, 30000);
+  },
 };

@@ -1,3 +1,5 @@
+import { tr } from '@/i18n';
+
 // The five levels a traveller sees. The backend's "Very High" is shown as Severe.
 
 export type LevelKey = 'low' | 'moderate' | 'high' | 'severe' | 'closed';
@@ -83,5 +85,10 @@ export function levelFromText(text?: string | null): LevelKey {
       return 'low';
   }
 }
+
+/** Translated "Severe" / "Not advised" (LEVELS keeps the English as the key) */
+export const levelLabel = (k: LevelKey) => tr(LEVELS[k].label);
+export const levelShort = (k: LevelKey) => tr(LEVELS[k].short);
+export const levelVerdict = (k: LevelKey) => tr(LEVELS[k].verdict);
 
 export const worst = (a: LevelKey, b: LevelKey): LevelKey => (LEVELS[a].rank >= LEVELS[b].rank ? a : b);

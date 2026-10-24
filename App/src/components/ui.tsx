@@ -12,7 +12,8 @@ import {
   type ViewStyle,
 } from 'react-native';
 
-import { LEVELS, type LevelKey } from '@/domain/levels';
+import { LEVELS, levelLabel, levelVerdict, type LevelKey } from '@/domain/levels';
+import { fontFor, useI18n } from '@/i18n';
 import { colors, fonts, radius, shadow } from '@/theme/tokens';
 
 type Variant = 'display' | 'h1' | 'h2' | 'h3' | 'body' | 'bodyStrong' | 'small' | 'smallStrong' | 'eyebrow';
@@ -41,7 +42,17 @@ export function Txt({
   style,
   ...rest
 }: TextProps & { variant?: Variant; color?: string }) {
-  return <Text {...rest} style={[VARIANTS[variant], { color }, style]} />;
+  const { lang } = useI18n();
+  if (lang !== 'hi') return <Text {...rest} style={[VARIANTS[variant], { color }, style]} />;
+  // Hindi: Devanagari face, a little more line height for the vowel marks, and no letter spacing
+  // (spacing breaks joined Devanagari letters)
+  const flat = StyleSheet.flatten([VARIANTS[variant], style]) as TextStyle;
+  const hi: TextStyle = {
+    fontFamily: fontFor(flat.fontFamily ?? fonts.body, 'hi'),
+    letterSpacing: 0,
+    ...(flat.lineHeight ? { lineHeight: Math.round(flat.lineHeight * 1.18) } : null),
+  };
+  return <Text {...rest} style={[VARIANTS[variant], { color }, style, hi]} />;
 }
 
 export function Card({
@@ -114,7 +125,7 @@ export function LevelBadge({ level, text, dot = true }: { level: LevelKey; text?
     <View style={[styles.badge, { backgroundColor: m.tint }]}>
       {dot ? <View style={[styles.dot, { backgroundColor: m.color }]} /> : null}
       <Txt variant="eyebrow" color={m.ink} numberOfLines={1}>
-        {text ?? `${m.label} · ${m.verdict}`}
+        {text ?? `${levelLabel(level)} · ${levelVerdict(level)}`}
       </Txt>
     </View>
   );
@@ -202,11 +213,9 @@ export function SectionTitle({ children, right }: { children: ReactNode; right?:
   );
 }
 
-export function Disclaimer({
-  text = 'Not an official warning · Low risk does not mean safe · Emergency 112',
-}: {
-  text?: string;
-}) {
+export function Disclaimer({ text }: { text?: string }) {
+  const { t } = useI18n();
+  text = text ?? t('Not an official warning · Low risk does not mean safe · Emergency 112');
   return (
     <Txt variant="small" color={colors.inkMuted} style={{ textAlign: 'center', marginTop: 16 }}>
       {text}

@@ -5,6 +5,12 @@ import {
   IBMPlexSans_700Bold,
 } from '@expo-google-fonts/ibm-plex-sans';
 import {
+  IBMPlexSansDevanagari_400Regular,
+  IBMPlexSansDevanagari_500Medium,
+  IBMPlexSansDevanagari_600SemiBold,
+  IBMPlexSansDevanagari_700Bold,
+} from '@expo-google-fonts/ibm-plex-sans-devanagari';
+import {
   IBMPlexSansCondensed_600SemiBold,
   IBMPlexSansCondensed_700Bold,
 } from '@expo-google-fonts/ibm-plex-sans-condensed';
@@ -17,6 +23,8 @@ import { useEffect, useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { loadSavedApiUrl } from '@/api/client';
+import { loadSavedMapStyle } from '@/components/CorridorMap';
+import { LanguageProvider, loadSavedLang } from '@/i18n';
 import { colors } from '@/theme/tokens';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -30,12 +38,16 @@ export default function RootLayout() {
     IBMPlexSans_700Bold,
     IBMPlexSansCondensed_600SemiBold,
     IBMPlexSansCondensed_700Bold,
+    IBMPlexSansDevanagari_400Regular,
+    IBMPlexSansDevanagari_500Medium,
+    IBMPlexSansDevanagari_600SemiBold,
+    IBMPlexSansDevanagari_700Bold,
   });
 
-  // The saved server address must be in place before the first request
+  // The saved server address and language must be in place before the first screen
   const [apiReady, setApiReady] = useState(false);
   useEffect(() => {
-    loadSavedApiUrl().finally(() => setApiReady(true));
+    Promise.all([loadSavedApiUrl(), loadSavedLang(), loadSavedMapStyle()]).finally(() => setApiReady(true));
   }, []);
 
   const ready = (loaded || !!error) && apiReady;
@@ -49,8 +61,10 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
-        <StatusBar style="light" />
-        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }} />
+        <LanguageProvider>
+          <StatusBar style="light" />
+          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }} />
+        </LanguageProvider>
       </QueryClientProvider>
     </SafeAreaProvider>
   );

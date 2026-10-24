@@ -10,10 +10,12 @@ import { locateOnRoad } from '@/domain/geo';
 import { hospitalList } from '@/domain/hospitals';
 import { LEVELS } from '@/domain/levels';
 import { clock12, parseIso } from '@/domain/time';
+import { placeName, useI18n } from '@/i18n';
 import { colors, radius } from '@/theme/tokens';
 
 export default function HospitalsScreen() {
   const pack = useOfflinePack();
+  const { t } = useI18n();
   const { corridor } = useCorridor();
   const [mine, setMine] = useState<string | null>(null);
   const [locating, setLocating] = useState(false);
@@ -35,10 +37,12 @@ export default function HospitalsScreen() {
       const road = corridor ? locateOnRoad([pos.coords.latitude, pos.coords.longitude], corridor.stretches) : null;
       if (!road) throw new Error('no road');
       if (road.offRoadKm > 10)
-        setLocError(`You are ${Math.round(road.offRoadKm)} km from NH-7. Showing the nearest stretch anyway.`);
+        setLocError(
+          t('You are {km} km from NH-7. Showing the nearest stretch anyway.', { km: Math.round(road.offRoadKm) }),
+        );
       setMine(road.stretchId);
     } catch {
-      setLocError('Could not get your location. Find your stretch in the list below.');
+      setLocError(t('Could not get your location. Find your stretch in the list below.'));
     } finally {
       setLocating(false);
     }
@@ -52,14 +56,15 @@ export default function HospitalsScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <AppHeader back title="Hospitals" subtitle="Along NH-7, Rishikesh to Joshimath" />
+      <AppHeader back title={t('Hospitals')} subtitle={t('Along NH-7, Rishikesh to Joshimath')} />
       <ScrollView contentContainerStyle={styles.body}>
         {pack.isPending ? <ActivityIndicator color={colors.navy} /> : null}
         {source === 'live' ? (
           <View style={styles.savedPill}>
             <Check size={20} color="#1E5C3F" />
             <Txt variant="bodyStrong" color="#1E5C3F">
-              Saved for offline use{savedAt ? ` · ${clock12(savedAt)}` : ''}
+              {t('Saved for offline use')}
+              {savedAt ? ` · ${clock12(savedAt)}` : ''}
             </Txt>
           </View>
         ) : null}
@@ -67,9 +72,11 @@ export default function HospitalsScreen() {
           <Notice
             tone="warn"
             icon={CloudOff}
-            title="No network: showing your offline copy"
+            title={t('No network: showing your offline copy')}
             body={
-              savedAt ? `Saved at ${clock12(savedAt)}. Hospitals rarely change, but call 112 if unsure.` : undefined
+              savedAt
+                ? t('Saved at {time}. Hospitals rarely change, but call 112 if unsure.', { time: clock12(savedAt) })
+                : undefined
             }
           />
         ) : null}
@@ -77,19 +84,19 @@ export default function HospitalsScreen() {
           <Notice
             tone="warn"
             icon={CloudOff}
-            title="No network and no saved copy yet"
-            body="This is the list bundled with the app. Open this page once online to save the latest."
+            title={t('No network and no saved copy yet')}
+            body={t('This is the list bundled with the app. Open this page once online to save the latest.')}
           />
         ) : null}
 
         <Txt color={colors.inkMuted} style={{ fontSize: 14, marginVertical: 12 }}>
-          Nearest hospital to each stretch, from Rishikesh. Distance is from the road.
+          {t('Nearest hospital to each stretch, from Rishikesh. Distance is from the road.')}
         </Txt>
         <Button
           kind="outline"
           compact
           icon={Crosshair}
-          label="Show the one nearest me first"
+          label={t('Show the one nearest me first')}
           loading={locating}
           onPress={findMine}
         />
@@ -109,22 +116,22 @@ export default function HospitalsScreen() {
                 <View style={{ flex: 1 }}>
                   {isMine ? (
                     <Txt variant="eyebrow" color={LEVELS.low.ink}>
-                      Nearest to you
+                      {t('Nearest to you')}
                     </Txt>
                   ) : null}
                   <Txt variant="h3" style={{ fontSize: 15 }}>
                     {h.hospital_name}
                   </Txt>
-                  <Txt color={colors.inkMuted}>{h.segment_name}</Txt>
+                  <Txt color={colors.inkMuted}>{placeName(h.segment_name)}</Txt>
                 </View>
                 <Txt variant="bodyStrong" style={{ fontSize: 15 }}>
-                  {h.distance_km != null ? `${h.distance_km.toFixed(1)} km` : '—'}
+                  {h.distance_km != null ? `${h.distance_km.toFixed(1)} ${t('km')}` : '—'}
                 </Txt>
               </View>
             );
           })}
         </Card>
-        <Disclaimer text="In an emergency call 112 first · Not an official list" />
+        <Disclaimer text={t('In an emergency call 112 first · Not an official list')} />
       </ScrollView>
     </View>
   );

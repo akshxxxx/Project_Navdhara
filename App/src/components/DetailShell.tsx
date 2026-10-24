@@ -5,6 +5,7 @@ import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { Stretch } from '@/domain/stretch';
+import { useI18n } from '@/i18n';
 import { colors, radius } from '@/theme/tokens';
 
 import { CallButton } from './AppHeader';
@@ -24,6 +25,7 @@ export function DetailShell({
   children: ReactNode;
 }) {
   const insets = useSafeAreaInsets();
+  const { t } = useI18n();
   const { height } = useWindowDimensions();
   const mapH = Math.min(Math.max(height * 0.34, 240), 420);
   const neighbours = stretches.filter((s) => Math.abs(s.seq - stretch.seq) <= 1).map((s) => s.id);
@@ -42,7 +44,7 @@ export function DetailShell({
       <View style={[styles.topBar, { top: insets.top + 12 }]} pointerEvents="box-none">
         <IconCircle
           icon={ArrowLeft}
-          label="Go back"
+          label={t('Go back')}
           size={52}
           onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
         />

@@ -11,9 +11,10 @@ import { CorridorMap } from '@/components/CorridorMap';
 import { ServerSheet } from '@/components/ServerSheet';
 import { Button, Card, Disclaimer, LevelBadge, Notice, SectionTitle, StatTile, Txt } from '@/components/ui';
 import { routeSegments, segmentInfo, townByName, TOWNS, WAIT_TOWNS } from '@/domain/corridor';
-import { LEVELS, levelFromText, worst, type LevelKey } from '@/domain/levels';
+import { LEVELS, levelFromText, levelLabel, worst, type LevelKey } from '@/domain/levels';
 import type { LatLng } from '@/domain/stretch';
 import { clock24, dayLabel, durationLabel, hoursBetween, istDateKey, parseIso, shortDay } from '@/domain/time';
+import { placeName, townName, useI18n } from '@/i18n';
 import { colors, radius } from '@/theme/tokens';
 
 const ACTIONS: Record<string, { tag: string; title: string; level: LevelKey }> = {
@@ -30,7 +31,7 @@ function levelAtEta(s: RouteSegment): LevelKey {
   return s.adjusted_risk_level ? worst(atEta, levelFromText(s.adjusted_risk_level)) : atEta;
 }
 
-const townAtKm = (km: number) => TOWNS.find((t) => Math.abs(t.km - km) < 0.01)?.name ?? `km ${Math.round(km)}`;
+const townAtKm = (km: number) => TOWNS.find((tw) => Math.abs(tw.km - km) < 0.01)?.name ?? `km ${Math.round(km)}`;
 
 function summarise(res: RouteRiskResponse, fromTown: string, toTown: string) {
   const forward = (townByName(fromTown)?.km ?? 0) < (townByName(toTown)?.km ?? 0);
@@ -89,10 +90,15 @@ export default function PlanResultScreen() {
   const trip = useTrip(segs ? { ...segs, departTime } : null);
   const { corridor } = useCorridor();
   const [serverOpen, setServerOpen] = useState(false);
+  const { t } = useI18n();
   const sum = useMemo(() => (trip.data ? summarise(trip.data, p.from, p.to) : null), [trip.data, p.from, p.to]);
 
   const header = (
-    <AppHeader back title={`${p.from} → ${p.to}`} subtitle={`${p.date ? dayLabel(p.date) : ''} · leave ${p.time}`} />
+    <AppHeader
+      back
+      title={`${townName(p.from)} → ${townName(p.to)}`}
+      subtitle={`${p.date ? dayLabel(p.date) : ''} · ${t('leave {time}', { time: p.time })}`}
+    />
   );
 
   if (!segs) {
@@ -100,7 +106,11 @@ export default function PlanResultScreen() {
       <View style={{ flex: 1 }}>
         {header}
         <View style={styles.body}>
-          <Notice tone="error" title="This route is not on NH-7" body="Go back and pick two different towns." />
+          <Notice
+            tone="error"
+            title={t('This route is not on NH-7')}
+            body={t('Go back and pick two different towns.')}
+          />
         </View>
       </View>
     );
@@ -113,10 +123,10 @@ export default function PlanResultScreen() {
         <View style={[styles.body, { alignItems: 'center', paddingTop: 60 }]}>
           <ActivityIndicator size="large" color={colors.navy} />
           <Txt color={colors.inkMuted} style={{ marginTop: 12 }}>
-            Checking every stretch for the hour you reach it…
+            {t('Checking every stretch for the hour you reach it…')}
           </Txt>
           <Txt variant="small" color={colors.inkFaint} style={{ marginTop: 6 }}>
-            Asking {getApiUrl()}
+            {t('Asking {url}', { url: getApiUrl() })}
           </Txt>
         </View>
       </View>
@@ -127,18 +137,23 @@ export default function PlanResultScreen() {
     const err = trip.error;
     const msg =
       err instanceof ApiError && err.status === 0
-        ? `${connectionHelp(err)} Check your connection, or the server address. The Map tab still shows the last saved risk.`
+        ? `${connectionHelp(err)} ${t('Check your connection, or the server address. The Map tab still shows the last saved risk.')}`
         : err instanceof ApiError && err.detail
           ? err.detail
-          : 'The trip check failed. Try again in a minute.';
+          : t('The trip check failed. Try again in a minute.');
     return (
       <View style={{ flex: 1 }}>
         {header}
         <View style={[styles.body, { gap: 16 }]}>
-          <Notice tone="error" title="Could not check this trip" body={msg} />
-          <Button label="Try again" icon={RefreshCw} loading={trip.isFetching} onPress={() => trip.refetch()} />
+          <Notice tone="error" title={t('Could not check this trip')} body={msg} />
+          <Button label={t('Try again')} icon={RefreshCw} loading={trip.isFetching} onPress={() => trip.refetch()} />
           {err instanceof ApiError && err.status === 0 ? (
-            <Button kind="outline" icon={Server} label="Change server address" onPress={() => setServerOpen(true)} />
+            <Button
+              kind="outline"
+              icon={Server}
+              label={t('Change server address')}
+              onPress={() => setServerOpen(true)}
+            />
           ) : null}
         </View>
         {serverOpen ? (
@@ -181,23 +196,27 @@ export default function PlanResultScreen() {
           <View style={styles.bannerHead}>
             <View style={[styles.tag, { backgroundColor: actionLevel.color }]}>
               <Txt variant="eyebrow" color={colors.white} style={{ fontSize: 15 }}>
-                {action.tag}
+                {t(action.tag)}
               </Txt>
             </View>
             <Txt variant="h2" color={actionLevel.ink} style={{ flex: 1, fontSize: 21, lineHeight: 24 }}>
-              {action.title}
+              {t(action.title)}
             </Txt>
           </View>
           <Txt style={{ marginTop: 10, fontSize: 14, lineHeight: 20 }}>{rec?.reason || res.advisory}</Txt>
         </View>
 
         <View style={styles.stats}>
-          <StatTile label="Distance" value={`${sum.distance}`} unit="km" />
-          <StatTile label="Driving" value={sum.hours != null ? `~${durationLabel(sum.hours)}` : '—'} />
+          <StatTile label={t('Distance')} value={`${sum.distance}`} unit={t('km')} />
+          <StatTile label={t('Driving')} value={sum.hours != null ? `~${durationLabel(sum.hours)}` : '—'} />
         </View>
         <View style={styles.stats}>
-          <StatTile label="Overall" value={LEVELS[sum.overall].label} valueColor={LEVELS[sum.overall].ink} />
-          <StatTile label="Risky stretches" value={String(sum.risky.length)} unit={`of ${routeIds.length}`} />
+          <StatTile label={t('Overall')} value={levelLabel(sum.overall)} valueColor={LEVELS[sum.overall].ink} />
+          <StatTile
+            label={t('Risky stretches')}
+            value={String(sum.risky.length)}
+            unit={t('of {n}', { n: routeIds.length })}
+          />
         </View>
 
         {corridor ? (
@@ -215,12 +234,12 @@ export default function PlanResultScreen() {
           </View>
         ) : null}
         <Txt variant="small" color={colors.inkMuted} style={{ marginTop: 6 }}>
-          Route coloured by the risk expected when you reach each stretch. Tap a stretch for details.
+          {t('Route coloured by the risk expected when you reach each stretch. Tap a stretch for details.')}
         </Txt>
 
         {rec?.best_departure_options?.length ? (
           <>
-            <SectionTitle>Safer times to leave</SectionTitle>
+            <SectionTitle>{t('Safer times to leave')}</SectionTitle>
             <View style={{ gap: 12 }}>
               {rec.best_departure_options.slice(0, 4).map((o, i) => {
                 const d = parseIso(o.depart_time);
@@ -233,25 +252,26 @@ export default function PlanResultScreen() {
                     <View style={{ flex: 1 }}>
                       {best ? (
                         <Txt variant="eyebrow" color="#1E5C3F">
-                          Best window{isCurrent ? ' · your time' : ` · ${delta > 0 ? '+' : ''}${delta} h`}
+                          {t('Best window')}
+                          {isCurrent ? ` · ${t('your time')}` : ` · ${delta > 0 ? '+' : ''}${delta} ${t('h')}`}
                         </Txt>
                       ) : null}
                       <Txt variant="h3" style={{ fontSize: 18 }}>
                         {d ? `${shortDay(d)} · ${clock24(d)}` : o.depart_time}
                       </Txt>
                       <Txt variant="bodyStrong" color={LEVELS[lvl].ink}>
-                        {LEVELS[lvl].label} route risk
-                        {!best && !isCurrent ? ` · ${delta > 0 ? '+' : ''}${delta} h` : ''}
+                        {t('{level} route risk', { level: levelLabel(lvl) })}
+                        {!best && !isCurrent ? ` · ${delta > 0 ? '+' : ''}${delta} ${t('h')}` : ''}
                       </Txt>
                     </View>
                     {isCurrent ? (
                       <Txt variant="smallStrong" color={colors.inkMuted}>
-                        Selected
+                        {t('Selected')}
                       </Txt>
                     ) : (
                       <Button
                         compact
-                        label="Select"
+                        label={t('Select')}
                         kind={best ? 'primary' : 'outline'}
                         onPress={() => d && router.setParams({ date: istDateKey(d), time: clock24(d) })}
                       />
@@ -263,7 +283,7 @@ export default function PlanResultScreen() {
           </>
         ) : null}
 
-        <SectionTitle>Route breakdown</SectionTitle>
+        <SectionTitle>{t('Route breakdown')}</SectionTitle>
         <Card padded={false}>
           {sum.rows.map((r, i) => (
             <View key={r.id} style={[styles.bdRow, i > 0 && styles.bdBorder]}>
@@ -272,25 +292,27 @@ export default function PlanResultScreen() {
               </Txt>
               <View style={{ flex: 1 }}>
                 <Txt variant="bodyStrong" style={{ fontSize: 15 }}>
-                  {r.town}
+                  {townName(r.town)}
                 </Txt>
                 <Txt variant="small" color={colors.inkMuted}>
                   km {Math.round(r.km)}
-                  {r.level ? '' : ' · arrive'}
+                  {r.level ? '' : ` · ${t('arrive')}`}
                 </Txt>
               </View>
-              {r.level ? <LevelBadge level={r.level} text={LEVELS[r.level].label} dot={false} /> : null}
+              {r.level ? <LevelBadge level={r.level} text={levelLabel(r.level)} dot={false} /> : null}
             </View>
           ))}
         </Card>
         <Txt variant="small" color={colors.inkMuted} style={{ marginTop: 6 }}>
-          Times assume about {Math.round(res.speed_kmph ?? 30)} km/h. Each level is for the stretch you enter at that
-          town, at the time you get there.
+          {t(
+            'Times assume about {speed} km/h. Each level is for the stretch you enter at that town, at the time you get there.',
+            { speed: Math.round(res.speed_kmph ?? 30) },
+          )}
         </Txt>
 
         {sum.risky.length ? (
           <>
-            <SectionTitle>High-risk stretches on your route</SectionTitle>
+            <SectionTitle>{t('High-risk stretches on your route')}</SectionTitle>
             <Card padded={false}>
               {sum.risky.map((s, i) => {
                 const eta = parseIso(s.eta_ist);
@@ -303,12 +325,12 @@ export default function PlanResultScreen() {
                     <View style={{ flex: 1, gap: 6 }}>
                       <LevelBadge level={sum.levels[s.id]} />
                       <Txt variant="bodyStrong" style={{ fontSize: 14 }}>
-                        {s.name}
+                        {placeName(s.name)}
                       </Txt>
                       <Txt variant="small" color={colors.inkMuted}>
-                        {eta ? `You reach it around ${clock24(eta)}` : ''}
+                        {eta ? t('You reach it around {time}', { time: clock24(eta) }) : ''}
                         {s.rain_72h_at_eta_mm != null
-                          ? ` · ${Math.round(s.rain_72h_at_eta_mm)} mm rain over 3 days by then`
+                          ? ` · ${t('{mm} mm rain over 3 days by then', { mm: Math.round(s.rain_72h_at_eta_mm) })}`
                           : ''}
                       </Txt>
                     </View>
@@ -322,14 +344,14 @@ export default function PlanResultScreen() {
 
         {sum.closures.length ? (
           <>
-            <SectionTitle>Closures on your route</SectionTitle>
+            <SectionTitle>{t('Closures on your route')}</SectionTitle>
             <View style={{ gap: 10 }}>
               {sum.closures.map((s) => (
                 <Notice
                   key={s.id}
                   tone="error"
                   icon={Construction}
-                  title={`${s.name}: ${s.closure!.status === 'closed' ? 'closed' : s.closure!.status === 'one_way' ? 'one way' : 'restricted'}`}
+                  title={`${placeName(s.name)}: ${s.closure!.status === 'closed' ? t('closed') : s.closure!.status === 'one_way' ? t('one way') : t('restricted')}`}
                   body={`${s.closure!.reason} · ${s.closure!.source}`}
                 />
               ))}
@@ -337,46 +359,56 @@ export default function PlanResultScreen() {
           </>
         ) : null}
 
-        <SectionTitle>Weather along the route</SectionTitle>
+        <SectionTitle>{t('Weather along the route')}</SectionTitle>
         {/* The 24/72 h figures come only from the hourly forecast mode; hide empty tiles */}
         {sum.weather.rain24 != null || sum.weather.next24 != null || sum.weather.next72 != null ? (
           <View style={styles.stats}>
             <StatTile
-              label="Rain 24 h"
+              label={t('Rain 24 h')}
               value={fmt(sum.weather.rain24)}
-              unit={sum.weather.rain24 == null ? undefined : 'mm'}
+              unit={sum.weather.rain24 == null ? undefined : t('mm')}
             />
             <StatTile
-              label="Next 24 h"
+              label={t('Next 24 h')}
               value={fmt(sum.weather.next24)}
-              unit={sum.weather.next24 == null ? undefined : 'mm'}
+              unit={sum.weather.next24 == null ? undefined : t('mm')}
             />
             <StatTile
-              label="Next 72 h"
+              label={t('Next 72 h')}
               value={fmt(sum.weather.next72)}
-              unit={sum.weather.next72 == null ? undefined : 'mm'}
+              unit={sum.weather.next72 == null ? undefined : t('mm')}
             />
           </View>
         ) : null}
         <Card style={{ marginTop: 12 }}>
           <Txt>
             {sum.weather.atEta != null
-              ? `Up to ${Math.round(sum.weather.atEta)} mm of rain over 3 days on the wettest stretch, by the time you reach it.`
-              : 'No rain figures for this route right now.'}
+              ? t('Up to {mm} mm of rain over 3 days on the wettest stretch, by the time you reach it.', {
+                  mm: Math.round(sum.weather.atEta),
+                })
+              : t('No rain figures for this route right now.')}
           </Txt>
           <Txt variant="small" color={colors.inkMuted} style={{ marginTop: 4 }}>
-            Tiles show the wettest stretch on the route{res.weather_source ? ` · weather ${res.weather_source}` : ''}
+            {t('Tiles show the wettest stretch on the route')}
+            {res.weather_source ? ` · ${t('weather {source}', { source: t(res.weather_source) })}` : ''}
           </Txt>
         </Card>
 
-        <SectionTitle>Where to wait</SectionTitle>
+        <SectionTitle>{t('Where to wait')}</SectionTitle>
         <Card>
           <View style={{ flexDirection: 'row', gap: 12 }}>
             <CloudRain size={26} color={colors.teal} />
             <Txt style={{ flex: 1 }}>
               {sum.waitTowns.length
-                ? `${sum.waitTowns.join(', ')} ${sum.waitTowns.length > 1 ? 'are valley towns' : 'is a valley town'} on your way with fuel, food and places to stay. Wait there if the rain gets heavy.`
-                : 'Wait in the town you start from if the rain gets heavy. Srinagar, Rudraprayag and Karnaprayag are the main valley towns on NH-7.'}
+                ? t(
+                    sum.waitTowns.length > 1
+                      ? '{towns} are valley towns on your way with fuel, food and places to stay. Wait there if the rain gets heavy.'
+                      : '{towns} is a valley town on your way with fuel, food and places to stay. Wait there if the rain gets heavy.',
+                    { towns: sum.waitTowns.map(townName).join(', ') },
+                  )
+                : t(
+                    'Wait in the town you start from if the rain gets heavy. Srinagar, Rudraprayag and Karnaprayag are the main valley towns on NH-7.',
+                  )}
             </Txt>
           </View>
           <View style={{ marginTop: 14, gap: 6 }}>
@@ -385,13 +417,13 @@ export default function PlanResultScreen() {
               'Do not stop below steep slopes or fresh cuttings.',
               'If you see stones falling, stop well back and wait.',
               'Keep fuel, water and a charged phone. Signal drops on many stretches.',
-            ].map((t) => (
-              <Txt key={t}>• {t}</Txt>
+            ].map((tip) => (
+              <Txt key={tip}>• {t(tip)}</Txt>
             ))}
           </View>
         </Card>
 
-        <Disclaimer text="Raah never says a route is safe · Not an official warning · Emergency 112" />
+        <Disclaimer text={t('Raah never says a route is safe · Not an official warning · Emergency 112')} />
       </ScrollView>
     </View>
   );

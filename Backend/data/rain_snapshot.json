@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-10-23T18:51:34Z",
+  "timestamp": "2026-10-24T00:35:57Z",
   "data": {
     "seg_01": {
       "rain_mm": 0.0,
@@ -10,7 +10,7 @@
       "status": "ok"
     },
     "seg_03": {
-      "rain_mm": 0.6,
+      "rain_mm": 0.0,
       "status": "ok"
     },
     "seg_04": {
@@ -22,11 +22,11 @@
       "status": "ok"
     },
     "seg_06": {
-      "rain_mm": 0.1,
+      "rain_mm": 0.0,
       "status": "ok"
     },
     "seg_07": {
-      "rain_mm": 0.1,
+      "rain_mm": 0.0,
       "status": "ok"
     },
     "seg_08": {
@@ -38,39 +38,39 @@
       "status": "ok"
     },
     "seg_10": {
-      "rain_mm": 0.0,
+      "rain_mm": 0.2,
       "status": "ok"
     },
     "seg_11": {
-      "rain_mm": 5.4,
+      "rain_mm": 0.6,
       "status": "ok"
     },
     "seg_12": {
-      "rain_mm": 5.4,
+      "rain_mm": 0.6,
       "status": "ok"
     },
     "seg_13": {
-      "rain_mm": 4.0,
+      "rain_mm": 0.5,
       "status": "ok"
     },
     "seg_14": {
-      "rain_mm": 1.1,
+      "rain_mm": 0.2,
       "status": "ok"
     },
     "seg_15": {
-      "rain_mm": 1.4,
+      "rain_mm": 0.3,
       "status": "ok"
     },
     "seg_16": {
-      "rain_mm": 1.4,
+      "rain_mm": 0.3,
       "status": "ok"
     },
     "seg_17": {
-      "rain_mm": 0.9,
+      "rain_mm": 2.0,
       "status": "ok"
     },
     "seg_18": {
-      "rain_mm": 1.7,
+      "rain_mm": 2.4,
       "status": "ok"
     }
   }

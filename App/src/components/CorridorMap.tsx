@@ -1,6 +1,8 @@
 import { Layers, Maximize, Minus, Plus } from 'lucide-react-native';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
+  Animated,
+  Easing,
   Image,
   PanResponder,
   Platform,
@@ -14,9 +16,11 @@ import {
 } from 'react-native';
 import Svg, { Circle, Ellipse, G, Path, Text as SvgText } from 'react-native-svg';
 
+import { KEYS, readJson, writeJson } from '@/api/storage';
 import { SEGMENTS, TOWNS } from '@/domain/corridor';
-import { LEVELS, type LevelKey } from '@/domain/levels';
+import { LEVELS, levelShort, type LevelKey } from '@/domain/levels';
 import type { LatLng, Stretch } from '@/domain/stretch';
+import { fontFor, townName, useI18n } from '@/i18n';
 import { colors, fonts, radius, shadow } from '@/theme/tokens';
 
 import { PickerSheet } from './PickerSheet';
@@ -26,20 +30,33 @@ import { Txt } from './ui';
 // (terrain, streets or satellite) placed as plain images. No map SDK or API key is needed, so it runs
 // the same in Expo Go, on the web and in a release build. Without network the tiles are missing but the
 // road, colours and towns still draw; the Schematic style needs no network at all.
+//
+// Smoothness: while a finger drags or pinches, and while the map flies somewhere, nothing is redrawn.
+// One layer holding the tiles and the road is moved and scaled with a native transform; the road and the
+// tiles are drawn again once, when the movement ends. A margin is drawn round the screen so dragging
+// does not reveal empty edges straight away.
 
 const MAX_POINTS = 90;
 const TILE = 256;
+/** Extra drawing beyond each edge of the screen, in pixels */
+const MARGIN = 220;
 /** World units are Web Mercator in 0..1, so pixels per unit at zoom z is 256 * 2^z */
 const MIN_S = TILE * 2 ** 6;
 const MAX_S = TILE * 2 ** 17;
 const FIT_MAX_S = TILE * 2 ** 15;
 const clampS = (s: number) => Math.min(Math.max(s, MIN_S), MAX_S);
+const NATIVE = Platform.OS !== 'web';
 
 type XY = [number, number];
 interface View2D {
   cx: number;
   cy: number;
   s: number; // pixels per world unit
+}
+interface Xform {
+  tx: number;
+  ty: number;
+  k: number;
 }
 
 export type MapStyleId = 'terrain' | 'streets' | 'satellite' | 'schematic';
@@ -93,11 +110,18 @@ export const MAP_STYLES: Record<Exclude<MapStyleId, 'schematic'>, TileStyle> = {
 // Tile servers ask apps to identify themselves (the browser sends its own on the web)
 const TILE_HEADERS = { 'User-Agent': 'RaahApp/1.0 (NH-7 landslide risk; Expo)' };
 
-// The chosen style is shared by every map in the app for the rest of the session
-let sessionStyle: MapStyleId = 'terrain';
+// Satellite by default (Aakash's choice); a style the traveller picks is shared by every map in the app
+// and remembered on the phone
+let sessionStyle: MapStyleId = 'satellite';
+const STYLE_IDS: MapStyleId[] = ['terrain', 'streets', 'satellite', 'schematic'];
 const rememberStyle = (id: MapStyleId) => {
   sessionStyle = id;
+  writeJson(KEYS.mapStyle, id);
 };
+export async function loadSavedMapStyle(): Promise<void> {
+  const saved = await readJson<MapStyleId>(KEYS.mapStyle);
+  if (saved && STYLE_IDS.includes(saved)) sessionStyle = saved;
+}
 
 // react-native-svg's onPress hands responder props to the DOM on web (console noise); a plain click works there
 const pressProps = (fn: () => void) => (Platform.OS === 'web' ? ({ onClick: fn } as object) : { onPress: fn });
@@ -129,6 +153,24 @@ function bbox(points: XY[]) {
     if (y > maxY) maxY = y;
   }
   return { minX, minY, maxX, maxY };
+}
+
+/**
+ * The moving layer is scaled around the centre of the map box (w/2, h/2), while the drawing is centred
+ * on midY (the free space between the overlays). These two functions convert between "drawn view +
+ * transform" and the view that transform shows.
+ */
+function viewAfter(base: View2D, x: Xform, h: number, midY: number): View2D {
+  const s = base.s * x.k;
+  return { s, cx: base.cx - x.tx / s, cy: base.cy - (x.ty + (x.k - 1) * (midY - h / 2)) / s };
+}
+function xformTo(base: View2D, target: View2D, h: number, midY: number): Xform {
+  const k = target.s / base.s;
+  return {
+    k,
+    tx: (base.cx - target.cx) * target.s,
+    ty: (base.cy - target.cy) * target.s - (k - 1) * (midY - h / 2),
+  };
 }
 
 export interface CorridorMapProps {
@@ -167,6 +209,7 @@ export function CorridorMap({
   style,
   interactive = true,
 }: CorridorMapProps) {
+  const { t, lang } = useI18n();
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [view, setView] = useState<View2D | null>(null);
   const [mapStyle, setMapStyleState] = useState<MapStyleId>(sessionStyle);
@@ -182,19 +225,100 @@ export function CorridorMap({
   const terrain = mapStyle === 'schematic';
   const [allLabels, setAllLabels] = useState(false);
   const [layersOpen, setLayersOpen] = useState(false);
+  const top = insets?.top ?? 0;
+  const bottom = insets?.bottom ?? 0;
+
+  // --- Live transform of the moving layer (no React render while it changes) ---
+  const [anim] = useState(() => ({ tx: new Animated.Value(0), ty: new Animated.Value(0), k: new Animated.Value(1) }));
+  /** JS copy of the transform values (native animations do not report back frame by frame) */
+  const xf = useRef<Xform>({ tx: 0, ty: 0, k: 1 });
   const viewRef = useRef<View2D | null>(null);
-  const anim = useRef<number | null>(null);
+  const geom = useRef({ w: 0, h: 0, midY: 0 });
   const interactiveRef = useRef(interactive);
-  // The ref mirrors the state so gesture and animation callbacks read the latest view without re-binding
-  const applyView = useCallback((v: View2D) => {
-    viewRef.current = v;
-    setView(v);
-  }, []);
+  const resetPending = useRef(false);
+  const animating = useRef<Animated.CompositeAnimation | null>(null);
+
   useEffect(() => {
     interactiveRef.current = interactive;
   }, [interactive]);
-  const top = insets?.top ?? 0;
-  const bottom = insets?.bottom ?? 0;
+  useEffect(() => {
+    geom.current = { w: size.w, h: size.h, midY: (top + (size.h - bottom)) / 2 };
+  }, [size, top, bottom]);
+
+  const setXform = useCallback(
+    (x: Xform) => {
+      xf.current = x;
+      anim.tx.setValue(x.tx);
+      anim.ty.setValue(x.ty);
+      anim.k.setValue(x.k);
+    },
+    [anim],
+  );
+
+  /** Draw the map for a new view; the transform goes back to identity once that drawing is on screen */
+  const commitView = useCallback((v: View2D) => {
+    viewRef.current = v;
+    resetPending.current = true;
+    setView(v);
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!resetPending.current) return;
+    resetPending.current = false;
+    setXform({ tx: 0, ty: 0, k: 1 });
+  }, [view, setXform]);
+
+  /** Bake whatever the transform shows into a redraw */
+  const commitTransform = useCallback(() => {
+    const base = viewRef.current;
+    const x = xf.current;
+    if (!base || (x.tx === 0 && x.ty === 0 && x.k === 1)) return;
+    const { h, midY } = geom.current;
+    commitView(viewAfter(base, x, h, midY));
+  }, [commitView]);
+
+  const stopAnimation = useCallback(() => {
+    if (!animating.current) return;
+    animating.current.stop();
+    animating.current = null;
+    // Native animations stop where they are; ask for those values so the next move starts from them
+    anim.tx.stopAnimation((v) => (xf.current = { ...xf.current, tx: v }));
+    anim.ty.stopAnimation((v) => (xf.current = { ...xf.current, ty: v }));
+    anim.k.stopAnimation((v) => (xf.current = { ...xf.current, k: v }));
+  }, [anim]);
+
+  const animateTo = useCallback(
+    (target: View2D) => {
+      const base = viewRef.current;
+      if (!base || !geom.current.w) {
+        commitView(target);
+        return;
+      }
+      stopAnimation();
+      const { h, midY } = geom.current;
+      const to = xformTo(base, target, h, midY);
+      const timing = (v: Animated.Value, value: number) =>
+        Animated.timing(v, {
+          toValue: value,
+          duration: 380,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: NATIVE,
+        });
+      const a = Animated.parallel([timing(anim.tx, to.tx), timing(anim.ty, to.ty), timing(anim.k, to.k)]);
+      animating.current = a;
+      a.start(({ finished }) => {
+        if (animating.current !== a) return;
+        animating.current = null;
+        if (finished) {
+          xf.current = to;
+          commitView(target);
+        }
+      });
+    },
+    [anim, commitView, stopAnimation],
+  );
+
+  useEffect(() => () => animating.current?.stop(), []);
 
   const visible = useMemo(
     () => (visibleIds ? stretches.filter((s) => visibleIds.includes(s.id)) : stretches),
@@ -206,12 +330,12 @@ export function CorridorMap({
     const lines: Record<string, XY[]> = {};
     for (const s of stretches) lines[s.id] = decimate(s.coords).map(toWorld);
     const towns: { name: string; major: boolean; p: XY; km: number }[] = [];
-    for (const t of TOWNS) {
-      const startSeg = SEGMENTS.find((g) => Math.abs(g.kmStart - t.km) < 0.01);
-      const endSeg = SEGMENTS.find((g) => Math.abs(g.kmEnd - t.km) < 0.01);
+    for (const tw of TOWNS) {
+      const startSeg = SEGMENTS.find((g) => Math.abs(g.kmStart - tw.km) < 0.01);
+      const endSeg = SEGMENTS.find((g) => Math.abs(g.kmEnd - tw.km) < 0.01);
       const line = startSeg ? lines[startSeg.id] : endSeg ? lines[endSeg.id] : null;
       if (!line?.length) continue;
-      towns.push({ name: t.name, major: t.major, km: t.km, p: startSeg ? line[0] : line[line.length - 1] });
+      towns.push({ name: tw.name, major: tw.major, km: tw.km, p: startSeg ? line[0] : line[line.length - 1] });
     }
     const all = Object.values(lines).flat();
     return { lines, towns, box: all.length ? bbox(all) : null };
@@ -235,45 +359,14 @@ export function CorridorMap({
     [visible, world, top, bottom, insets?.right],
   );
 
-  const animateTo = useCallback(
-    (target: View2D) => {
-      const from = viewRef.current;
-      if (anim.current != null) cancelAnimationFrame(anim.current);
-      if (!from) {
-        applyView(target);
-        return;
-      }
-      const start = Date.now();
-      const dur = 420;
-      const step = () => {
-        const t = Math.min(1, (Date.now() - start) / dur);
-        const e = 1 - Math.pow(1 - t, 3);
-        applyView({
-          cx: from.cx + (target.cx - from.cx) * e,
-          cy: from.cy + (target.cy - from.cy) * e,
-          s: Math.exp(Math.log(from.s) + (Math.log(target.s) - Math.log(from.s)) * e),
-        });
-        if (t < 1) anim.current = requestAnimationFrame(step);
-      };
-      anim.current = requestAnimationFrame(step);
-    },
-    [applyView],
-  );
-
-  useEffect(
-    () => () => {
-      if (anim.current != null) cancelAnimationFrame(anim.current);
-    },
-    [],
-  );
-
   // Fit on first layout and fly whenever the focus changes
   useEffect(() => {
     if (!size.w) return;
+    geom.current = { w: size.w, h: size.h, midY: (top + (size.h - bottom)) / 2 };
     const v = fitView(focusIds, size.w, size.h);
     if (!v) return;
     if (viewRef.current) animateTo(v);
-    else applyView(v);
+    else commitView(v);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [size.w, size.h, focusKey, world]);
 
@@ -283,16 +376,19 @@ export function CorridorMap({
   };
 
   const zoomBy = (f: number) => {
-    const v = viewRef.current;
-    if (v) animateTo({ ...v, s: clampS(v.s * f) });
+    const base = viewRef.current;
+    if (!base) return;
+    const { h, midY } = geom.current;
+    const now = viewAfter(base, xf.current, h, midY);
+    animateTo({ ...now, s: clampS(now.s * f) });
   };
 
   // Drag to pan, two fingers to zoom. Taps fall through to the road.
-  const gesture = useRef<{ start: View2D; dist: number | null } | null>(null);
+  const gesture = useRef<{ start: Xform; dist: number | null } | null>(null);
   const pinchDist = (e: GestureResponderEvent) => {
-    const t = e.nativeEvent.touches;
-    if (!t || t.length < 2) return null;
-    return Math.hypot(t[0].pageX - t[1].pageX, t[0].pageY - t[1].pageY);
+    const touches = e.nativeEvent.touches;
+    if (!touches || touches.length < 2) return null;
+    return Math.hypot(touches[0].pageX - touches[1].pageX, touches[0].pageY - touches[1].pageY);
   };
   // Created once; its callbacks only touch refs when a gesture happens, never during render
   // eslint-disable-next-line react-hooks/refs
@@ -301,23 +397,28 @@ export function CorridorMap({
       onMoveShouldSetPanResponder: (e, g) =>
         interactiveRef.current && (Math.abs(g.dx) + Math.abs(g.dy) > 6 || (e.nativeEvent.touches?.length ?? 0) > 1),
       onPanResponderGrant: (e) => {
-        if (anim.current != null) cancelAnimationFrame(anim.current);
-        if (viewRef.current) gesture.current = { start: viewRef.current, dist: pinchDist(e) };
+        stopAnimation();
+        gesture.current = { start: { ...xf.current }, dist: pinchDist(e) };
       },
       onPanResponderMove: (e, g) => {
         const st = gesture.current;
-        if (!st) return;
+        const base = viewRef.current;
+        if (!st || !base) return;
         const d = pinchDist(e);
-        if (d && st.dist) {
-          applyView({ ...st.start, s: clampS(st.start.s * (d / st.dist)) });
-        } else if (d && !st.dist) {
-          gesture.current = { start: viewRef.current ?? st.start, dist: d };
-        } else {
-          applyView({ ...st.start, cx: st.start.cx - g.dx / st.start.s, cy: st.start.cy - g.dy / st.start.s });
-        }
+        let k = st.start.k;
+        if (d && st.dist) k = st.start.k * (d / st.dist);
+        else if (d && !st.dist) gesture.current = st.dist === null ? { start: { ...xf.current }, dist: d } : st;
+        // Keep the zoom inside the limits the redraw allows
+        k = Math.min(Math.max(k, MIN_S / base.s), MAX_S / base.s);
+        setXform({ tx: st.start.tx + g.dx, ty: st.start.ty + g.dy, k });
       },
       onPanResponderRelease: () => {
         gesture.current = null;
+        commitTransform();
+      },
+      onPanResponderTerminate: () => {
+        gesture.current = null;
+        commitTransform();
       },
       onPanResponderTerminationRequest: () => true,
     }),
@@ -325,6 +426,7 @@ export function CorridorMap({
 
   const fitAllScale = useMemo(() => fitView(null, size.w, size.h)?.s ?? 1, [fitView, size]);
 
+  // Tiles cover the screen plus the margin, in coordinates of the moving layer
   const tiles = useMemo(() => {
     if (!view || !size.w || mapStyle === 'schematic') return [];
     const st = MAP_STYLES[mapStyle];
@@ -332,10 +434,10 @@ export function CorridorMap({
     const z = Math.max(0, Math.min(st.maxZoom, Math.round(Math.log2(view.s / TILE))));
     const n = 2 ** z;
     const px = view.s / n; // on-screen size of one tile
-    const x0 = Math.floor((view.cx - size.w / 2 / view.s) * n);
-    const x1 = Math.floor((view.cx + size.w / 2 / view.s) * n);
-    const y0 = Math.max(0, Math.floor((view.cy - midY / view.s) * n));
-    const y1 = Math.min(n - 1, Math.floor((view.cy + (size.h - midY) / view.s) * n));
+    const x0 = Math.floor((view.cx - (size.w / 2 + MARGIN) / view.s) * n);
+    const x1 = Math.floor((view.cx + (size.w / 2 + MARGIN) / view.s) * n);
+    const y0 = Math.max(0, Math.floor((view.cy - (midY + MARGIN) / view.s) * n));
+    const y1 = Math.min(n - 1, Math.floor((view.cy + (size.h - midY + MARGIN) / view.s) * n));
     const out: { key: string; uri: string; left: number; top: number; size: number }[] = [];
     for (let ty = y0; ty <= y1; ty++) {
       for (let tx = x0; tx <= x1; tx++) {
@@ -353,17 +455,23 @@ export function CorridorMap({
   }, [view, size, mapStyle, top, bottom]);
 
   const onTile = (ok: boolean) => {
-    const t = tileStats.current;
-    if (ok) t.ok++;
-    else t.failed++;
-    const failing = t.failed >= 4 && t.ok === 0;
+    const st = tileStats.current;
+    if (ok) st.ok++;
+    else st.failed++;
+    const failing = st.failed >= 4 && st.ok === 0;
     if (failing !== tilesFailing) setTilesFailing(failing);
   };
+
+  const labelFont = fontFor(fonts.bodyBold, lang);
 
   const content = useMemo(() => {
     if (!view || !size.w || !world.box) return null;
     const midY = (top + (size.h - bottom)) / 2;
-    const P = ([x, y]: XY): XY => [(x - view.cx) * view.s + size.w / 2, (y - view.cy) * view.s + midY];
+    // Drawn into an SVG that is MARGIN larger on every side, hence the offsets
+    const P = ([x, y]: XY): XY => [
+      (x - view.cx) * view.s + size.w / 2 + MARGIN,
+      (y - view.cy) * view.s + midY + MARGIN,
+    ];
     const pathOf = (pts: XY[]) =>
       pts.map((p, i) => `${i ? 'L' : 'M'}${P(p)[0].toFixed(1)} ${P(p)[1].toFixed(1)}`).join('');
     const levelOf = (s: Stretch) => levelOverride?.[s.id] ?? s.level;
@@ -393,28 +501,31 @@ export function CorridorMap({
     const selected = selectedId ? stretches.find((s) => s.id === selectedId) : null;
     const selectedTowns = selected ? [selected.from, selected.to.replace(/ \(.*\)$/, '')] : [];
 
-    const towns = world.towns.filter((t) => {
-      if (visibleIds && !townSet.has(t.name)) return false;
-      return allLabels || t.major || zoomed || selectedTowns.includes(t.name);
+    const towns = world.towns.filter((tw) => {
+      if (visibleIds && !townSet.has(tw.name)) return false;
+      return allLabels || tw.major || zoomed || selectedTowns.includes(tw.name);
     });
 
-    // Skip a name that would overlap one already placed (selected towns first, then major ones)
-    const priority = (t: (typeof towns)[number]) => (selectedTowns.includes(t.name) ? 0 : t.major ? 1 : 2);
-    // A name near the right edge goes to the left of its dot, so it is never cut off
+    // Skip a name that would overlap one already placed (selected towns first, then major ones).
+    // A name near the right edge goes to the left of its dot, so it is never cut off.
+    const priority = (tw: (typeof towns)[number]) => (selectedTowns.includes(tw.name) ? 0 : tw.major ? 1 : 2);
     const placed: { x0: number; x1: number; y0: number; y1: number }[] = [];
-    const labelled = new Map<string, { x: number; anchor: 'start' | 'end' }>();
-    for (const t of [...towns].sort((a, b) => priority(a) - priority(b))) {
-      const [x, y] = P(t.p);
-      const fs = t.major || selectedTowns.includes(t.name) ? 14 : 12;
-      const width = t.name.length * fs * 0.62;
+    const labelled = new Map<string, { x: number; anchor: 'start' | 'end'; text: string }>();
+    const right = size.w + MARGIN - 6;
+    const left = MARGIN + 6;
+    for (const tw of [...towns].sort((a, c) => priority(a) - priority(c))) {
+      const [x, y] = P(tw.p);
+      const text = townName(tw.name);
+      const fs = tw.major || selectedTowns.includes(tw.name) ? 14 : 12;
+      const width = text.length * fs * 0.62;
       let pos: { x: number; anchor: 'start' | 'end' } = { x: x + 10, anchor: 'start' };
-      if (x + 10 + width > size.w - 6)
-        pos = x - 10 - width >= 6 ? { x: x - 10, anchor: 'end' } : { x: 6, anchor: 'start' };
+      if (x + 10 + width > right)
+        pos = x - 10 - width >= left ? { x: x - 10, anchor: 'end' } : { x: left, anchor: 'start' };
       const x0 = pos.anchor === 'start' ? pos.x : pos.x - width;
       const box = { x0: x0 - 2, x1: x0 + width + 2, y0: y + 4, y1: y + 23 };
       if (placed.some((p) => box.x0 < p.x1 && box.x1 > p.x0 && box.y0 < p.y1 && box.y1 > p.y0)) continue;
       placed.push(box);
-      labelled.set(t.name, pos);
+      labelled.set(tw.name, { ...pos, text });
     }
 
     return (
@@ -424,13 +535,13 @@ export function CorridorMap({
             {anchors.map(([ax, ay, r], i) => {
               const c = P([b.minX + ax * bw, b.minY + ay * bh]);
               const rx = r * bw * view.s;
-              return [1, 0.72, 0.46, 0.22].map((k) => (
+              return [1, 0.72, 0.46, 0.22].map((kk) => (
                 <Ellipse
-                  key={`${i}-${k}`}
+                  key={`${i}-${kk}`}
                   cx={c[0]}
                   cy={c[1]}
-                  rx={rx * k}
-                  ry={rx * k * 0.42}
+                  rx={rx * kk}
+                  ry={rx * kk * 0.42}
                   stroke={colors.contour}
                   strokeWidth={1.2}
                   fill="none"
@@ -511,12 +622,12 @@ export function CorridorMap({
             );
           })}
 
-        {towns.map((t) => {
-          const [x, y] = P(t.p);
-          const big = t.major || selectedTowns.includes(t.name);
-          const label = labelled.get(t.name);
+        {towns.map((tw) => {
+          const [x, y] = P(tw.p);
+          const big = tw.major || selectedTowns.includes(tw.name);
+          const label = labelled.get(tw.name);
           return (
-            <G key={`t-${t.name}`}>
+            <G key={`t-${tw.name}`}>
               <Circle cx={x} cy={y} r={big ? 7 : 5} fill={colors.white} stroke={colors.ink} strokeWidth={2.5} />
               {label ? (
                 <>
@@ -525,23 +636,23 @@ export function CorridorMap({
                     y={y + 19}
                     textAnchor={label.anchor}
                     fontSize={big ? 14 : 12}
-                    fontFamily={fonts.bodyBold}
+                    fontFamily={labelFont}
                     fontWeight="700"
                     stroke={colors.white}
                     strokeWidth={4}
                     strokeLinejoin="round"
                     fill={colors.white}>
-                    {t.name}
+                    {label.text}
                   </SvgText>
                   <SvgText
                     x={label.x}
                     y={y + 19}
                     textAnchor={label.anchor}
                     fontSize={big ? 14 : 12}
-                    fontFamily={fonts.bodyBold}
+                    fontFamily={labelFont}
                     fontWeight="700"
                     fill={colors.ink}>
-                    {t.name}
+                    {label.text}
                   </SvgText>
                 </>
               ) : null}
@@ -604,50 +715,65 @@ export function CorridorMap({
     top,
     bottom,
     fitAllScale,
+    labelFont,
   ]);
+
+  const veil = mapStyle === 'schematic' ? 0 : MAP_STYLES[mapStyle].veil;
 
   return (
     <View
-      style={[styles.wrap, mapStyle !== 'schematic' && { backgroundColor: MAP_STYLES[mapStyle].background }, style]}
+      style={[
+        styles.wrap,
+        // 'clip' on the web: a clipped box that is not scrollable, so the margin drawing never scrolls it
+        Platform.OS === 'web' && ({ overflow: 'clip' } as unknown as ViewStyle),
+        mapStyle !== 'schematic' && { backgroundColor: MAP_STYLES[mapStyle].background },
+        style,
+      ]}
       onLayout={onLayout}
       {...responder.panHandlers}>
-      {tiles.length ? (
-        // Clipped here too: tiles past the edge would make the map scrollable on the web, and the
-        // browser then scrolls it when a button inside regains focus
-        <View style={[StyleSheet.absoluteFill, { overflow: 'hidden' }]} pointerEvents="none">
-          {tiles.map((t) => (
-            <Image
-              key={t.key}
-              source={{ uri: t.uri, headers: TILE_HEADERS }}
-              style={{ position: 'absolute', left: t.left, top: t.top, width: t.size, height: t.size }}
-              fadeDuration={0}
-              onLoad={() => onTile(true)}
-              onError={() => onTile(false)}
-            />
-          ))}
-          {MAP_STYLES[mapStyle as keyof typeof MAP_STYLES].veil ? (
+      {size.w > 0 ? (
+        <Animated.View
+          style={[
+            StyleSheet.absoluteFill,
+            { transform: [{ translateX: anim.tx }, { translateY: anim.ty }, { scale: anim.k }] },
+          ]}
+          pointerEvents="box-none">
+          {tiles.length ? (
+            <View style={StyleSheet.absoluteFill} pointerEvents="none">
+              {tiles.map((tl) => (
+                <Image
+                  key={tl.key}
+                  source={{ uri: tl.uri, headers: TILE_HEADERS }}
+                  style={{ position: 'absolute', left: tl.left, top: tl.top, width: tl.size, height: tl.size }}
+                  fadeDuration={0}
+                  onLoad={() => onTile(true)}
+                  onError={() => onTile(false)}
+                />
+              ))}
+            </View>
+          ) : null}
+          {veil ? (
             <View
-              style={[
-                StyleSheet.absoluteFill,
-                { backgroundColor: 'white', opacity: MAP_STYLES[mapStyle as keyof typeof MAP_STYLES].veil },
-              ]}
+              style={[styles.veil, { opacity: veil, width: size.w + MARGIN * 2, height: size.h + MARGIN * 2 }]}
+              pointerEvents="none"
             />
           ) : null}
-        </View>
-      ) : null}
-      {size.w > 0 ? (
-        // Its own positioned layer: on the web an absolute tile layer would otherwise paint over it
-        <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-          <Svg width={size.w} height={size.h} accessibilityLabel="Map of NH-7 coloured by landslide risk">
-            {content}
-          </Svg>
-        </View>
+          {/* Its own positioned layer: on the web an absolute tile layer would otherwise paint over it */}
+          <View style={styles.svgLayer} pointerEvents="box-none">
+            <Svg
+              width={size.w + MARGIN * 2}
+              height={size.h + MARGIN * 2}
+              accessibilityLabel={t('Map of NH-7 coloured by landslide risk')}>
+              {content}
+            </Svg>
+          </View>
+        </Animated.View>
       ) : null}
 
       {mapStyle !== 'schematic' ? (
         <View style={[styles.attribution, { bottom: attributionBottom }]} pointerEvents="none">
           <Txt style={styles.attributionText} numberOfLines={1}>
-            {tilesFailing ? 'Map needs internet · road still shown' : MAP_STYLES[mapStyle].attribution}
+            {tilesFailing ? t('Map needs internet · road still shown') : MAP_STYLES[mapStyle].attribution}
           </Txt>
         </View>
       ) : null}
@@ -655,22 +781,22 @@ export function CorridorMap({
       {controls ? (
         <View style={[styles.controls, { bottom: bottom + 16 }]} pointerEvents="box-none">
           <View style={styles.controlGroup}>
-            <CtrlButton label="Zoom in" onPress={() => zoomBy(1.6)} icon={<Plus size={22} color={colors.ink} />} />
+            <CtrlButton label={t('Zoom in')} onPress={() => zoomBy(1.6)} icon={<Plus size={22} color={colors.ink} />} />
             <View style={styles.divider} />
             <CtrlButton
-              label="Zoom out"
+              label={t('Zoom out')}
               onPress={() => zoomBy(1 / 1.6)}
               icon={<Minus size={22} color={colors.ink} />}
             />
             <View style={styles.divider} />
             <CtrlButton
-              label="Map style"
+              label={t('Map style')}
               onPress={() => setLayersOpen((v) => !v)}
               icon={<Layers size={20} color={colors.ink} />}
             />
             <View style={styles.divider} />
             <CtrlButton
-              label="Fit the whole corridor"
+              label={t('Fit the whole corridor')}
               onPress={() => {
                 const v = fitView(null, size.w, size.h);
                 if (v) animateTo(v);
@@ -683,19 +809,19 @@ export function CorridorMap({
       {/* A bottom sheet, not a popover: a popover runs off the top of a short map */}
       <PickerSheet
         visible={layersOpen}
-        title="Map style"
+        title={t('Map style')}
         value={mapStyle}
         options={[
           ...(Object.keys(MAP_STYLES) as (keyof typeof MAP_STYLES)[]).map((id) => ({
             value: id,
-            label: MAP_STYLES[id].label,
-            hint: MAP_STYLES[id].hint,
+            label: t(MAP_STYLES[id].label),
+            hint: t(MAP_STYLES[id].hint),
           })),
-          { value: 'schematic', label: 'Schematic', hint: 'Works without internet' },
+          { value: 'schematic', label: t('Schematic'), hint: t('Works without internet') },
           {
             value: 'labels',
-            label: allLabels ? 'Show main towns only' : 'Show all 19 town names',
-            hint: 'Town names on the map',
+            label: allLabels ? t('Show main towns only') : t('Show all 19 town names'),
+            hint: t('Town names on the map'),
           },
         ]}
         onPick={(v) => {
@@ -717,13 +843,14 @@ function CtrlButton({ icon, onPress, label }: { icon: React.ReactNode; onPress: 
 }
 
 export function Legend() {
+  useI18n();
   return (
     <View style={styles.legend}>
       {(['low', 'moderate', 'high', 'severe', 'closed'] as LevelKey[]).map((k) => (
         <View key={k} style={styles.legendItem}>
           <View style={[styles.legendSwatch, { backgroundColor: LEVELS[k].color }]} />
           <Txt variant="small" style={{ fontSize: 12 }}>
-            {LEVELS[k].short}
+            {levelShort(k)}
           </Txt>
         </View>
       ))}
@@ -733,6 +860,8 @@ export function Legend() {
 
 const styles = StyleSheet.create({
   wrap: { backgroundColor: colors.mapBg, overflow: 'hidden' },
+  svgLayer: { position: 'absolute', left: -MARGIN, top: -MARGIN },
+  veil: { position: 'absolute', left: -MARGIN, top: -MARGIN, backgroundColor: 'white' },
   controls: { position: 'absolute', right: 16 },
   controlGroup: { backgroundColor: colors.white, borderRadius: radius.md, ...shadow.float },
   ctrl: { width: 46, height: 46, alignItems: 'center', justifyContent: 'center' },
